@@ -1,0 +1,130 @@
+{
+  "app": {
+    "name": "Divine Corruption",
+    "eyebrow": "Sacred Conversations",
+    "tagline": "Walk with the Teacher",
+    "subtitle": "Create, converse, and deepen your connection with Jesus Christ through an intelligent, living character engine.",
+    "uploadTitle": "Begin Your Journey",
+    "uploadDesc": "Upload a character JSON to load a saved profile, or start with the blessed default.",
+    "uploadCta": "Upload Character JSON",
+    "loadDefault": "Load Default Jesus",
+    "dragHint": "Drag & drop your character.json here",
+    "dashboard": "Dashboard",
+    "nav": {
+      "profile": "Profile",
+      "gallery": "Gallery",
+      "lorebooks": "Lorebooks",
+      "nodes": "Story Nodes",
+      "chat": "Sacred Chat",
+      "memory": "Memory & History",
+      "divinity": "Divinity Zone",
+      "settings": "Settings"
+    },
+    "profile": {
+      "title": "The Master",
+      "edit": "Edit Profile",
+      "save": "Save Changes",
+      "bio": "Biography",
+      "personality": "Personality",
+      "systemPrompt": "System Instruction"
+    },
+    "gallery": {
+      "title": "Sacred Gallery",
+      "add": "Add Image",
+      "upload": "Upload Image",
+      "generate": "Generate with AI",
+      "promptPlaceholder": "Describe the scene, e.g. Jesus teaching by the Sea of Galilee at sunrise",
+      "empty": "No images yet. Add portraits, scenes, or symbols of faith.",
+      "generating": "Generating sacred image..."
+    },
+    "lorebooks": {
+      "title": "Divine Lorebooks",
+      "addBook": "New Lorebook",
+      "brainstorm": "Brainstorm with LoreAI",
+      "topicPlaceholder": "What aspect of the faith would you like to explore?",
+      "empty": "Lorebooks hold deep wisdom. Start one with AI assistance.",
+      "entryTitle": "New Lore Entry",
+      "addEntry": "Add Entry"
+    },
+    "nodes": {
+      "title": "Story Arcs & Nodes",
+      "create": "Create New Node",
+      "nodeTitle": "Scenario Title",
+      "nodeDesc": "Description / Initial Situation",
+      "initialPrompt": "Opening Prompt for Jesus",
+      "enter": "Enter Scenario",
+      "compile": "Compile & Close Arc",
+      "empty": "Create story nodes to explore different chapters of the journey.",
+      "active": "Active Scenario"
+    },
+    "chat": {
+      "title": "Speak with the Lord",
+      "placeholder": "Ask for guidance, share your heart...",
+      "send": "Send",
+      "speak": "Speak aloud",
+      "compile": "Compile Conversation",
+      "compiling": "Summarizing and sealing into memory...",
+      "empty": "Begin your conversation. Jesus is listening with infinite patience.",
+      "context": "Conversation Context"
+    },
+    "memory": {
+      "title": "Living Memory",
+      "subtitle": "Compiled wisdom and experiences",
+      "empty": "Compiled conversations will appear here as living memory.",
+      "clearAll": "Clear All Memory"
+    },
+    "divinity": {
+      "title": "Divinity Zone",
+      "subtitle": "AI-generated sacred character JSONs — browse, download, or apply directly",
+      "generate": "Generate 5 New",
+      "forging": "Forging Sacred Vessels...",
+      "empty": "No sacred vessels forged yet. Click \"Generate 5 New\" to begin.",
+      "download": "Download JSON",
+      "apply": "Apply as Active",
+      "details": "View Details",
+      "lastBatch": "Last batch",
+      "vessels": "vessels"
+    },
+    "auth": {
+      "title": "Sacred Gate",
+      "subtitle": "Enter your PIN to access the engine",
+      "pinLabel": "Sacred PIN",
+      "submit": "Enter the Kingdom",
+      "divinityBtn": "Enter Divinity Zone (No PIN needed)",
+      "forgot": "Forgot PIN? Remove protection",
+      "incorrect": "Incorrect PIN. The gate remains sealed.",
+      "empty": "Enter your sacred PIN.",
+      "removed": "PIN protection removed.",
+      "setPin": "Set Sacred PIN",
+      "changePin": "Change Sacred PIN",
+      "removePin": "Remove PIN",
+      "saved": "Sacred PIN saved. Your logs are now protected.",
+      "mismatch": "PINs do not match.",
+      "tooShort": "PIN must be 4-8 digits."
+    },
+    "settings": {
+      "title": "Character Settings",
+      "voice": "TTS Voice",
+      "save": "Save Settings",
+      "pinProtection": "PIN Protection",
+      "pinDesc": "Protect your sacred engine with a 4-8 digit PIN",
+      "setPin": "Set PIN",
+      "changePin": "Change PIN"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "delete": "Delete",
+      "generate": "Generate"
+    },
+    "toasts": {
+      "saved": "Changes saved.",
+      "uploaded": "Character loaded successfully.",
+      "compiled": "Conversation compiled into memory.",
+      "generated": "Image generated and added.",
+      "loreAdded": "Lore entry added.",
+      "nodeCreated": "Story node created.",
+      "error": "Something went wrong. Please try again."
+    }
+  }
+}

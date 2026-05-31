@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "divine-corruption-ollama-warmup",
+  "main": "./ollama-warmup-worker.js",
+  "compatibility_date": "2026-05-31",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  },
+  "vars": {
+    "OLLAMA_BASE_URL": "https://your-ollama-vm.example.com",
+    "OLLAMA_MODELS": "dolphin-mistral:latest",
+    "OLLAMA_KEEP_ALIVE": "30m",
+    "OLLAMA_REQUEST_TIMEOUT_MS": "45000",
+    "OLLAMA_WARMUP_CONCURRENCY": "1",
+    "OLLAMA_NUM_CTX": "1024",
+    "OLLAMA_NUM_PREDICT": "1",
+    "OLLAMA_PING_PROMPT": "Reply OK."
+  }
+}

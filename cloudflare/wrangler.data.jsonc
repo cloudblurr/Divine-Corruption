@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "divine-corruption-data",
+  "main": "./data-worker.js",
+  "compatibility_date": "2026-05-31",
+  "d1_databases": [
+    {
+      "binding": "APP_DB",
+      "database_name": "divine-corruption-db",
+      "database_id": "8a133e42-fa47-4091-9ac4-464f4e78da1f"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "divine-corruption-media"
+    }
+  ]
+}

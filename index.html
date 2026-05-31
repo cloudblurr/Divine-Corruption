@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Divine Corruption</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <link rel="icon" href="./assets/divinelogo.jpg" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="min-h-screen bg-zinc-950 text-zinc-100">
+  <div class="particle-field" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+  <div id="splash-screen" class="fixed inset-0 z-[180] hidden flex items-center justify-center p-6 bg-zinc-950">
+    <div class="splash-shell max-w-xl text-center p-8">
+      <div class="glitch-container splash-logo-frame mx-auto mb-6">
+        <img src="./assets/divinelogo.jpg" class="glitch-img" alt="Divine Corruption logo" />
+        <img src="./assets/divinelogo.jpg" class="glitch-layer layer-1" alt="" />
+        <img src="./assets/divinelogo.jpg" class="glitch-layer layer-2" alt="" />
+        <img src="./assets/divinelogo.jpg" class="glitch-layer layer-3" alt="" />
+      </div>
+      <div class="text-xs uppercase tracking-[0.35em] text-amber-400 mb-4">Local Engine</div>
+      <h1 class="glitch-text text-5xl font-semibold tracking-tight text-amber-100 mb-4">Divine Corruption</h1>
+      <p class="text-sm text-zinc-400 mb-6">Story, lore, characters, and persistent self-hosted roleplay.</p>
+      <button id="btn-enter-splash" class="neu-btn-primary rounded-2xl px-6 py-3 font-semibold">Enter</button>
+    </div>
+  </div>
+
+  <section id="auth-screen" class="fixed inset-0 z-[160] hidden flex items-center justify-center p-6">
+    <div class="w-full max-w-md neu-card p-7">
+      <h2 class="text-2xl font-semibold text-amber-100">Sacred Gate</h2>
+      <p class="text-sm text-zinc-400 mt-1 mb-5">Enter your PIN to continue.</p>
+      <label class="text-xs text-zinc-400">PIN</label>
+      <input id="auth-pin-input" type="password" inputmode="numeric" class="neu-input mt-1" />
+      <div id="auth-error" class="hidden mt-3 text-sm text-red-400"></div>
+      <button id="auth-submit-btn" class="mt-5 w-full neu-btn-primary rounded-2xl py-3 font-semibold">Enter</button>
+      <button id="auth-divinity-btn" class="mt-3 w-full neu-btn rounded-2xl py-3 text-sm">Open Divinity Zone</button>
+      <button id="auth-skip-btn" class="mt-3 w-full text-xs text-zinc-500">Remove PIN</button>
+    </div>
+  </section>
+
+  <section id="upload-screen" class="hidden flex min-h-screen items-center justify-center p-6">
+    <div class="w-full max-w-2xl neu-card p-8 text-center">
+      <div class="text-xs uppercase tracking-[0.3em] text-amber-400 mb-3">Character</div>
+      <h1 class="text-4xl font-semibold text-amber-100">Load A Character</h1>
+      <p class="text-sm text-zinc-400 mt-2 mb-6">Upload a Tavern/Chub JSON or start with the bundled default.</p>
+      <label class="block rounded-2xl border border-dashed border-zinc-700 p-8 cursor-pointer hover:border-amber-500 transition">
+        <span class="block font-medium text-zinc-200">Upload Character JSON</span>
+        <span class="block text-xs text-zinc-500 mt-1">Drop or browse for a .json file</span>
+        <input id="json-upload" type="file" accept=".json,application/json" class="hidden" />
+      </label>
+      <div class="mt-5 flex flex-col sm:flex-row gap-3 justify-center">
+        <button id="btn-load-default" class="neu-btn-primary rounded-2xl px-5 py-3 font-semibold">Load Default</button>
+        <button id="btn-open-blessing-forge" class="neu-btn rounded-2xl px-5 py-3">Open Forge</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="blessing-screen" class="hidden min-h-screen p-6">
+    <div class="mx-auto max-w-5xl">
+      <button id="btn-back-from-forge" class="neu-btn rounded-2xl px-4 py-2 mb-5">Back</button>
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="neu-card p-6 space-y-4">
+          <h2 class="text-2xl font-semibold text-amber-100">Blessing Maker</h2>
+          <input id="forge-name" class="neu-input" placeholder="Character name" />
+          <select id="forge-temperament" class="neu-input">
+            <option>Dominant Shepherd</option>
+            <option>Gothic Romantic</option>
+            <option>Gentle Savior</option>
+          </select>
+          <textarea id="forge-guidance" class="neu-input" rows="4" placeholder="Guidance"></textarea>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="neu-card p-3 text-sm cursor-pointer">Facet 1<input id="forge-img-1" type="file" accept="image/*" class="hidden" /></label>
+            <label class="neu-card p-3 text-sm cursor-pointer">Facet 2<input id="forge-img-2" type="file" accept="image/*" class="hidden" /></label>
+            <label class="neu-card p-3 text-sm cursor-pointer">Facet 3<input id="forge-img-3" type="file" accept="image/*" class="hidden" /></label>
+            <label class="neu-card p-3 text-sm cursor-pointer">Facet 4<input id="forge-img-4" type="file" accept="image/*" class="hidden" /></label>
+          </div>
+          <div id="forge-preview-1-container" class="hidden"><img id="forge-preview-1" class="max-h-24 rounded-xl" alt="" /></div>
+          <div id="forge-preview-2-container" class="hidden"><img id="forge-preview-2" class="max-h-24 rounded-xl" alt="" /></div>
+          <div id="forge-preview-3-container" class="hidden"><img id="forge-preview-3" class="max-h-24 rounded-xl" alt="" /></div>
+          <div id="forge-preview-4-container" class="hidden"><img id="forge-preview-4" class="max-h-24 rounded-xl" alt="" /></div>
+          <button id="btn-do-forge" class="neu-btn-primary w-full rounded-2xl py-3 font-semibold">Forge</button>
+        </div>
+        <div class="neu-card p-6">
+          <div id="forge-placeholder-panel" class="text-zinc-500 text-sm">Forge output appears here.</div>
+          <div id="forge-status-panel" class="hidden text-amber-300"><span id="forge-status-step">Working...</span></div>
+          <div id="forge-result-panel" class="hidden space-y-3">
+            <h3 id="result-name" class="text-2xl font-semibold text-amber-100"></h3>
+            <div id="result-title" class="text-sm text-amber-300"></div>
+            <p id="result-bio" class="text-sm text-zinc-300"></p>
+            <p id="result-first-mes" class="text-sm text-zinc-400"></p>
+            <button id="btn-toggle-json-viewer" class="neu-btn rounded-xl px-3 py-2 text-xs">Toggle JSON</button>
+            <pre id="json-viewer-content" class="hidden max-h-64 overflow-auto rounded-xl bg-black/40 p-3 text-xs"><code id="result-json"></code></pre>
+            <div class="flex gap-3">
+              <button id="btn-export-forged-json" class="neu-btn rounded-xl px-4 py-2">Export</button>
+              <button id="btn-confirm-forged" class="neu-btn-primary rounded-xl px-4 py-2">Apply</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="divinity-zone-screen" class="hidden min-h-screen p-6">
+    <div class="mx-auto max-w-7xl">
+      <div class="flex items-center justify-between gap-4 mb-6">
+        <button id="dz-back-to-auth" class="neu-btn rounded-2xl px-4 py-2">Back</button>
+        <div id="dz-meta-standalone" class="text-xs text-zinc-500"></div>
+      </div>
+      <div id="dz-standalone-root"></div>
+    </div>
+  </section>
+
+  <main id="dashboard" class="hidden min-h-screen">
+    <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/90 backdrop-blur">
+      <div class="mx-auto max-w-7xl px-4 py-4">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-3">
+              <img src="./assets/divinelogo.jpg" alt="Divine Corruption" class="brand-mark" />
+              <div>
+                <div class="text-xs uppercase tracking-[0.25em] text-amber-400">Divine Corruption</div>
+                <div class="text-xl font-semibold text-amber-100">Local Ollama Build</div>
+              </div>
+            </div>
+          </div>
+          <div id="nav-scroll-container" class="nav-scroll-container relative flex-1 min-w-0">
+            <button id="nav-arrow-left" class="nav-arrow hidden absolute left-0 top-1/2 -translate-y-1/2 z-10 neu-btn h-8 w-8 rounded-full">&lt;</button>
+            <nav id="nav-tabs" class="nav-scroll-track flex gap-2 overflow-x-auto px-10">
+              <button class="nav-tab" data-tab="characters">Characters</button>
+              <button class="nav-tab active" data-tab="profile">Profile</button>
+              <button class="nav-tab" data-tab="gallery">Gallery</button>
+              <button class="nav-tab" data-tab="lorebooks">Lorebooks</button>
+              <button class="nav-tab" data-tab="nodes">Story Nodes</button>
+              <button class="nav-tab" data-tab="chat">Chat</button>
+              <button class="nav-tab" data-tab="biblicalai">BiblicalAI <span id="lore-badge" class="lore-badge hidden">0</span></button>
+              <button class="nav-tab" data-tab="divinity">Divinity Zone</button>
+              <button class="nav-tab" data-tab="settings">Settings</button>
+            </nav>
+            <button id="nav-arrow-right" class="nav-arrow hidden absolute right-0 top-1/2 -translate-y-1/2 z-10 neu-btn h-8 w-8 rounded-full">&gt;</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="mx-auto max-w-7xl px-4 py-8">
+      <section id="panel-characters" class="tab-panel hidden"></section>
+      <section id="panel-profile" class="tab-panel"></section>
+
+      <section id="panel-gallery" class="tab-panel hidden">
+        <div class="flex items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-3xl font-semibold tracking-tight">Gallery</h2>
+            <p class="text-sm text-zinc-400">Images and video references.</p>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-upload-image" class="neu-btn rounded-2xl px-4 py-2">Upload</button>
+            <button id="btn-clear-gallery" class="neu-btn rounded-2xl px-4 py-2 text-red-300">Clear Storage</button>
+            <button id="btn-generate-image" class="neu-btn-primary rounded-2xl px-4 py-2">Generate</button>
+          </div>
+        </div>
+        <div id="bulk-upload-zone" class="hidden neu-card p-6 mb-6 text-center cursor-pointer">
+          <input id="bulk-file-input" type="file" multiple class="hidden" />
+          <div class="flex flex-col items-center gap-3">
+            <div class="text-sm text-zinc-400">Drop files here or browse.</div>
+            <button id="btn-browse-bulk" class="neu-btn rounded-xl px-4 py-2">Browse</button>
+          </div>
+          <div id="upload-progress-area" class="hidden mt-5">
+            <div class="h-2 rounded bg-black/40 overflow-hidden"><div id="upload-progress-fill" class="h-full bg-amber-500"></div></div>
+            <div id="upload-progress-text" class="text-xs text-zinc-500 mt-2"></div>
+            <div id="upload-thumbs-grid" class="grid grid-cols-4 gap-2 mt-4"></div>
+          </div>
+        </div>
+        <div id="gallery-grid" class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"></div>
+        <div id="gallery-empty" class="hidden text-center text-zinc-500 py-16">No media yet.</div>
+      </section>
+
+      <section id="panel-lorebooks" class="tab-panel hidden">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-3xl font-semibold tracking-tight">Lorebooks</h2>
+          <button id="btn-new-lorebook" class="neu-btn-primary rounded-2xl px-4 py-2">New Lorebook</button>
+        </div>
+        <div id="lorebooks-list" class="space-y-4"></div>
+        <div id="lorebooks-empty" class="hidden text-center text-zinc-500 py-16">No lorebooks yet.</div>
+      </section>
+
+      <section id="panel-nodes" class="tab-panel hidden">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-3xl font-semibold tracking-tight">Story Nodes</h2>
+          <button id="btn-create-node" class="neu-btn-primary rounded-2xl px-4 py-2">Create Node</button>
+        </div>
+        <div id="nodes-grid" class="grid gap-4 md:grid-cols-2"></div>
+        <div id="nodes-empty" class="hidden text-center text-zinc-500 py-16">No nodes yet.</div>
+      </section>
+
+      <section id="panel-chat" class="tab-panel hidden"></section>
+
+      <section id="panel-biblicalai" class="tab-panel hidden">
+        <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
+          <div class="neu-card p-5">
+            <h2 class="text-3xl font-semibold tracking-tight mb-4">BiblicalAI</h2>
+            <div class="flex flex-wrap gap-2 mb-4">
+              <button class="lore-seed-btn neu-btn rounded-xl px-3 py-2 text-xs" data-topic="opening scene traditions">Opening Traditions</button>
+              <button class="lore-seed-btn neu-btn rounded-xl px-3 py-2 text-xs" data-topic="hidden temples and places">Places</button>
+              <button class="lore-seed-btn neu-btn rounded-xl px-3 py-2 text-xs" data-topic="character vows and unresolved promises">Vows</button>
+              <button class="lore-seed-btn neu-btn rounded-xl px-3 py-2 text-xs" data-topic="factions, rivals, and allies">Factions</button>
+            </div>
+            <div id="biblicalai-messages" class="h-[52vh] overflow-y-auto space-y-3 rounded-2xl bg-black/20 p-4"></div>
+            <div class="mt-4 flex gap-3">
+              <input id="biblicalai-input" class="neu-input" placeholder="Ask for story lore..." />
+              <button id="btn-biblicalai-send" class="neu-btn-primary rounded-2xl px-5">Send</button>
+            </div>
+          </div>
+          <aside class="neu-card p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-emerald-300">Pending Lore</h3>
+              <button id="btn-approve-all-lore" class="hidden neu-btn rounded-xl px-3 py-1 text-xs">Approve All</button>
+            </div>
+            <div id="biblicalai-pending" class="space-y-3"></div>
+          </aside>
+        </div>
+        <div id="biblicalai-forge-host" class="mt-6"></div>
+      </section>
+
+      <section id="panel-divinity" class="tab-panel hidden"></section>
+      <section id="panel-settings" class="tab-panel hidden"></section>
+    </div>
+  </main>
+
+  <aside id="chat-drawer" class="hidden fixed right-4 top-28 bottom-4 z-[90] w-[360px] max-w-[calc(100vw-2rem)] neu-card p-4 overflow-hidden">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex gap-2">
+        <button class="drawer-tab-btn active" data-drawer="gallery">Gallery</button>
+        <button class="drawer-tab-btn" data-drawer="lore">Lore</button>
+        <button class="drawer-tab-btn" data-drawer="info">Info</button>
+      </div>
+      <button id="chat-drawer-close" class="neu-btn rounded-xl px-3 py-1">Close</button>
+    </div>
+    <div id="drawer-content" class="h-[calc(100%-48px)] overflow-y-auto"></div>
+  </aside>
+
+  <div id="modal-node" class="hidden fixed inset-0 z-[130] items-center justify-center p-4 bg-black/70">
+    <div class="modal neu-card w-full max-w-lg p-6">
+      <h3 class="text-xl font-semibold mb-4">Create Node</h3>
+      <input id="node-title" class="neu-input mb-3" placeholder="Title" />
+      <textarea id="node-desc" class="neu-input mb-3" rows="3" placeholder="Description"></textarea>
+      <textarea id="node-initial" class="neu-input mb-4" rows="3" placeholder="Opening prompt"></textarea>
+      <div class="flex justify-end gap-3">
+        <button id="btn-cancel-node" class="neu-btn rounded-xl px-4 py-2">Cancel</button>
+        <button id="btn-save-node" class="neu-btn-primary rounded-xl px-4 py-2">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-lorebrain" class="hidden fixed inset-0 z-[130] items-center justify-center p-4 bg-black/70">
+    <div class="modal neu-card w-full max-w-lg p-6">
+      <h3 class="text-xl font-semibold mb-4">LoreAI</h3>
+      <input id="lore-topic" class="neu-input mb-3" placeholder="Topic" />
+      <select id="lorebook-select" class="neu-input mb-4"></select>
+      <div class="flex justify-end gap-3">
+        <button id="btn-cancel-brain" class="neu-btn rounded-xl px-4 py-2">Cancel</button>
+        <button id="btn-do-brainstorm" class="neu-btn-primary rounded-xl px-4 py-2">Generate</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-generate" class="hidden fixed inset-0 z-[130] items-center justify-center p-4 bg-black/70">
+    <div class="modal neu-card w-full max-w-lg p-6">
+      <h3 class="text-xl font-semibold mb-4">Generate Image</h3>
+      <textarea id="gen-prompt" class="neu-input mb-4" rows="4" placeholder="Prompt"></textarea>
+      <div id="gen-loading" class="hidden mb-3 text-sm text-amber-300">Generating...</div>
+      <div class="flex justify-end gap-3">
+        <button id="btn-cancel-gen" class="neu-btn rounded-xl px-4 py-2">Cancel</button>
+        <button id="btn-do-generate" class="neu-btn-primary rounded-xl px-4 py-2">Generate Image</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-edit-profile" class="hidden fixed inset-0 z-[130] items-center justify-center p-4 bg-black/70">
+    <div class="modal neu-card w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-xl font-semibold mb-4">Edit Profile</h3>
+      <div class="grid gap-3">
+        <input id="edit-name" class="neu-input" placeholder="Name" />
+        <input id="edit-title" class="neu-input" placeholder="Title" />
+        <textarea id="edit-bio" class="neu-input" rows="3" placeholder="Bio"></textarea>
+        <textarea id="edit-personality" class="neu-input" rows="3" placeholder="Personality"></textarea>
+        <textarea id="edit-scenario" class="neu-input" rows="3" placeholder="Scenario"></textarea>
+        <textarea id="edit-first-mes" class="neu-input" rows="3" placeholder="First message"></textarea>
+        <textarea id="edit-mes-example" class="neu-input" rows="3" placeholder="Example dialogue"></textarea>
+        <textarea id="edit-system" class="neu-input font-mono" rows="6" placeholder="System prompt"></textarea>
+      </div>
+      <div class="mt-5 flex justify-end gap-3">
+        <button id="btn-cancel-profile" class="neu-btn rounded-xl px-4 py-2">Cancel</button>
+        <button id="btn-save-profile" class="neu-btn-primary rounded-xl px-4 py-2">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-pin-setup" class="hidden fixed inset-0 z-[130] items-center justify-center p-4 bg-black/70">
+    <div class="modal neu-card w-full max-w-md p-6">
+      <h3 class="pin-modal-title text-xl font-semibold mb-4">Set PIN</h3>
+      <div class="pin-current-row hidden mb-3">
+        <input id="pin-current" type="password" inputmode="numeric" class="neu-input" placeholder="Current PIN" />
+      </div>
+      <input id="pin-new" type="password" inputmode="numeric" class="neu-input mb-3" placeholder="New PIN" />
+      <input id="pin-confirm" type="password" inputmode="numeric" class="neu-input mb-3" placeholder="Confirm PIN" />
+      <div id="pin-setup-error" class="hidden text-sm text-red-400 mb-3"></div>
+      <div class="flex justify-between gap-3">
+        <button id="pin-remove-btn" class="hidden neu-btn rounded-xl px-4 py-2 text-red-300">Remove</button>
+        <div class="ml-auto flex gap-3">
+          <button id="pin-cancel-btn" class="neu-btn rounded-xl px-4 py-2">Cancel</button>
+          <button id="pin-save-btn" class="neu-btn-primary rounded-xl px-4 py-2">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-dz-detail" class="hidden fixed inset-0 z-[130] items-center justify-center p-4 bg-black/70">
+    <div class="modal neu-card w-full max-w-2xl p-6">
+      <div class="dz-detail-content"></div>
+      <div class="mt-5 flex justify-end gap-3">
+        <button class="dz-detail-close neu-btn rounded-xl px-4 py-2">Close</button>
+        <button class="dz-detail-download neu-btn rounded-xl px-4 py-2">Download</button>
+        <button class="dz-detail-apply neu-btn-primary rounded-xl px-4 py-2">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+
+  <script>
+    window.__OLLAMA_ENDPOINT__ = window.__OLLAMA_ENDPOINT__ || '/ollama';
+    window.__DATA_ENDPOINT__ = window.__DATA_ENDPOINT__ || 'https://divine-corruption-data.blnq.workers.dev/db';
+    window.miniappI18n = window.miniappI18n || {
+      t(key) {
+        return key.split('.').reduce((obj, part) => obj && obj[part], window.__I18N || {}) || key;
+      }
+    };
+    window.miniappsAI = window.miniappsAI || {
+      storage: {
+        async getItem(key) { return localStorage.getItem(key); },
+        async setItem(key, value) { localStorage.setItem(key, value); },
+        async removeItem(key) { localStorage.removeItem(key); }
+      },
+      async callModel() {
+        throw new Error('Miniapps model calls are not available in standalone mode. Use Ollama models in Settings.');
+      },
+      extractText(result) {
+        return result?.text || result?.message?.content || result?.choices?.[0]?.message?.content || '';
+      },
+      extractImages(result) {
+        return result?.images || [];
+      },
+      async uploadFile(file) {
+        const publicUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+        return { publicUrl };
+      },
+      tts: {
+        async speak({ text, voiceId }) {
+          if (!window.speechSynthesis) throw new Error('Speech synthesis unavailable');
+          return new Promise((resolve, reject) => {
+            const utterance = new SpeechSynthesisUtterance(text);
+            if (String(voiceId || '').startsWith('elevenlabs:')) {
+              utterance.rate = 0.9;
+              utterance.pitch = 0.82;
+            }
+            utterance.onend = resolve;
+            utterance.onerror = reject;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+          });
+        }
+      }
+    };
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

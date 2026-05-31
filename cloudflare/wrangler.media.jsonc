@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "divine-corruption-media",
+  "main": "./media-worker.js",
+  "compatibility_date": "2026-05-31",
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "divine-corruption-media"
+    }
+  ]
+}

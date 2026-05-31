@@ -14,11 +14,12 @@ import { fetchOllamaModels, warmOllamaModels } from './utils/ollama.js';
 import { initBlessingMaker } from './ui/blessingmaker.js';
 import { initDivinityZone, showDivinityZoneDirect } from './ui/divinity-zone.js';
 import { initAuth, checkAndGate } from './ui/auth.js';
-import { dbGet, dbSet } from './db.js';
 
 let currentTab = 'profile';
 let i18n = null;
-const APP_SPLASH_VERSION = 'divinelogo-v2';
+const SPLASH_DURATION_MS = 5000;
+let uploadHandlersReady = false;
+let shortcutsReady = false;
 
 function t(key, values) {
   return i18n?.t(key, values) ?? key;
@@ -34,33 +35,32 @@ async function bootstrap() {
   const uploadScreen = document.getElementById('upload-screen');
   const dashboard = document.getElementById('dashboard');
 
-  // Check if user has seen the splash (one-time only)
-  const hasSeenSplash = await dbGet('hasSeenSplash');
-
-  if (hasSeenSplash === APP_SPLASH_VERSION) {
-    splash.classList.add('hidden');
-    await proceedAfterSplash(state, uploadScreen, dashboard);
-  } else {
-    splash.classList.remove('hidden');
-    setupSplash(splash, state, uploadScreen, dashboard);
-  }
+  await runSplash(splash);
+  await proceedAfterSplash(state, uploadScreen, dashboard);
 }
 
-function setupSplash(splash, state, uploadScreen, dashboard) {
-  const enterBtn = document.getElementById('btn-enter-splash');
-  
-  enterBtn.onclick = async () => {
-    await dbSet('hasSeenSplash', APP_SPLASH_VERSION);
-    
-    splash.style.transition = 'opacity 280ms ease';
-    splash.style.opacity = '0';
-    
+function runSplash(splash) {
+  if (!splash) return Promise.resolve();
+
+  document.getElementById('auth-screen')?.classList.add('hidden');
+  document.getElementById('upload-screen')?.classList.add('hidden');
+  document.getElementById('dashboard')?.classList.add('hidden');
+  splash.classList.remove('hidden');
+  splash.classList.add('splash-running');
+  splash.style.opacity = '1';
+
+  return new Promise(resolve => {
     setTimeout(() => {
-      splash.classList.add('hidden');
-      splash.style.opacity = '1';
-      proceedAfterSplash(state, uploadScreen, dashboard);
-    }, 280);
-  };
+      splash.style.transition = 'opacity 360ms ease';
+      splash.style.opacity = '0';
+      setTimeout(() => {
+        splash.classList.add('hidden');
+        splash.classList.remove('splash-running');
+        splash.style.opacity = '1';
+        resolve();
+      }, 380);
+    }, SPLASH_DURATION_MS);
+  });
 }
 
 async function proceedAfterSplash(state, uploadScreen, dashboard) {
@@ -73,10 +73,9 @@ async function proceedAfterSplash(state, uploadScreen, dashboard) {
 
   // Setup auth gate
   initAuth(() => {
-    // On successful auth, show dashboard
     const dzScreen = document.getElementById('divinity-zone-screen');
     if (dzScreen) dzScreen.classList.add('hidden');
-    showDashboard(uploadScreen, dashboard, getState());
+    proceedToApp(getState(), uploadScreen, dashboard);
   });
 
   // Check auth status
@@ -99,17 +98,19 @@ function proceedToApp(state, uploadScreen, dashboard) {
     dashboard.classList.add('hidden');
   }
 
-  // Global keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement.tagName === 'BODY') {
-      e.preventDefault();
-      const chatInput = document.getElementById('chat-input');
-      if (chatInput) {
-        switchTab('chat');
-        chatInput.focus();
+  if (!shortcutsReady) {
+    shortcutsReady = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement.tagName === 'BODY') {
+        e.preventDefault();
+        const chatInput = document.getElementById('chat-input');
+        if (chatInput) {
+          switchTab('chat');
+          chatInput.focus();
+        }
       }
-    }
-  });
+    });
+  }
 }
 
 function setupDivinityZoneStandalone() {
@@ -119,6 +120,9 @@ function setupDivinityZoneStandalone() {
 }
 
 function setupUploadHandlers(uploadScreen, dashboard) {
+  if (uploadHandlersReady) return;
+  uploadHandlersReady = true;
+
   const jsonInput = document.getElementById('json-upload');
   const loadDefaultBtn = document.getElementById('btn-load-default');
 

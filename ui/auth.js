@@ -16,17 +16,10 @@ export function setAuthed(val) {
   isAuthenticated = val;
 }
 
-// Check if PIN is configured; if yes, show auth gate; if no, proceed
+// Always show the auth portal after splash. First launch creates a local PIN.
 export async function checkAndGate() {
+  if (isAuthenticated) return true;
   const config = await getAuthConfig();
-
-  if (!config.enabled || !config.pinHash) {
-    // No PIN set — open access
-    isAuthenticated = true;
-    return true;
-  }
-
-  // PIN is set — show auth screen
   showAuthScreen(config);
   return false;
 }
@@ -37,45 +30,94 @@ function showAuthScreen(config) {
 
   authScreen.classList.remove('hidden');
 
+  const isSetup = !config.enabled || !config.pinHash;
+  const portal = authScreen.querySelector('.auth-portal');
+  const titleEl = document.getElementById('auth-title');
+  const subtitleEl = document.getElementById('auth-subtitle');
+  const pinLabel = document.getElementById('auth-pin-label');
   const pinInput = document.getElementById('auth-pin-input');
+  const confirmWrap = document.getElementById('auth-confirm-wrap');
+  const confirmInput = document.getElementById('auth-confirm-input');
   const submitBtn = document.getElementById('auth-submit-btn');
   const errorEl = document.getElementById('auth-error');
   const skipBtn = document.getElementById('auth-skip-btn');
   const dzBtn = document.getElementById('auth-divinity-btn');
 
+  titleEl.textContent = isSetup ? 'Create Sign-In PIN' : 'Sign In';
+  subtitleEl.textContent = isSetup
+    ? 'Choose a local PIN to protect your characters, chats, lore, media, and settings on this device.'
+    : 'Enter your PIN to unlock your saved characters, chats, lore, media, and settings.';
+  pinLabel.textContent = isSetup ? 'New PIN' : 'PIN';
+  submitBtn.textContent = isSetup ? 'Create PIN & Sign In' : 'Sign In';
+  confirmWrap.classList.toggle('hidden', !isSetup);
+  if (skipBtn) skipBtn.classList.add('hidden');
+  pinInput.setAttribute('autocomplete', isSetup ? 'new-password' : 'current-password');
   pinInput.value = '';
+  if (confirmInput) confirmInput.value = '';
   errorEl.classList.add('hidden');
-  pinInput.focus();
+  requestAnimationFrame(() => pinInput.focus());
 
-  const tryAuth = () => {
+  const showError = (message) => {
+    errorEl.textContent = message;
+    errorEl.classList.remove('hidden');
+    if (portal) {
+      portal.style.animation = 'none';
+      portal.offsetHeight;
+      portal.style.animation = 'authShake 0.4s ease';
+    }
+  };
+
+  const finishAuth = () => {
+    isAuthenticated = true;
+    authScreen.classList.add('hidden');
+    if (onAuthSuccess) onAuthSuccess();
+  };
+
+  const tryAuth = async () => {
     const pin = pinInput.value.trim();
-    if (!pin) {
-      errorEl.textContent = 'Enter your sacred PIN.';
-      errorEl.classList.remove('hidden');
+    const confirmPin = confirmInput?.value.trim() || '';
+
+    if (!/^\d{4,8}$/.test(pin)) {
+      showError('PIN must be 4-8 digits.');
       return;
     }
 
-    const hash = hashPin(pin);
-    if (hash === config.pinHash) {
-      isAuthenticated = true;
-      authScreen.classList.add('hidden');
-      if (onAuthSuccess) onAuthSuccess();
+    if (isSetup) {
+      if (pin !== confirmPin) {
+        showError('PINs do not match.');
+        return;
+      }
+      await setAuthConfig({ pinHash: hashPin(pin), enabled: true, updatedAt: Date.now() });
+      finishAuth();
+      return;
+    }
+
+    if (hashPin(pin) === config.pinHash) {
+      finishAuth();
     } else {
-      errorEl.textContent = 'Incorrect PIN. The gate remains sealed.';
-      errorEl.classList.remove('hidden');
+      showError('Incorrect PIN. The gate remains sealed.');
       pinInput.value = '';
+      if (confirmInput) confirmInput.value = '';
       pinInput.focus();
-      // Shake animation
-      pinInput.parentElement.style.animation = 'none';
-      pinInput.parentElement.offsetHeight;
-      pinInput.parentElement.style.animation = 'authShake 0.4s ease';
     }
   };
 
-  submitBtn.onclick = tryAuth;
+  submitBtn.onclick = () => { void tryAuth(); };
   pinInput.onkeydown = (e) => {
-    if (e.key === 'Enter') tryAuth();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (isSetup && confirmInput && !confirmInput.value) confirmInput.focus();
+      else void tryAuth();
+    }
   };
+  if (confirmInput) {
+    confirmInput.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void tryAuth();
+      }
+    };
+  }
 
   // Divinity Zone is always accessible
   if (dzBtn) {
@@ -84,16 +126,7 @@ function showAuthScreen(config) {
     };
   }
 
-  // Skip button (for users who forgot PIN - clears auth)
-  if (skipBtn) {
-    skipBtn.onclick = async () => {
-      if (!confirm('This will remove your PIN protection. Your data stays intact. Continue?')) return;
-      await setAuthConfig({ pinHash: null, enabled: false });
-      isAuthenticated = true;
-      authScreen.classList.add('hidden');
-      if (onAuthSuccess) onAuthSuccess();
-    };
-  }
+  if (skipBtn) skipBtn.onclick = null;
 }
 
 // PIN Setup Modal (shown from Settings)

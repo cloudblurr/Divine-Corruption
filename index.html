@@ -13,7 +13,7 @@
   <div class="particle-field" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
-  <div id="splash-screen" class="fixed inset-0 z-[180] hidden flex items-center justify-center p-6 bg-zinc-950">
+  <div id="splash-screen" class="fixed inset-0 z-[180] flex items-center justify-center p-6 bg-zinc-950">
     <div class="splash-shell max-w-xl text-center p-8">
       <div class="glitch-container splash-logo-frame mx-auto mb-6">
         <img src="./assets/divinelogo.jpg" class="glitch-img" alt="Divine Corruption logo" />
@@ -24,20 +24,35 @@
       <div class="text-xs uppercase tracking-[0.35em] text-amber-400 mb-4">Local Engine</div>
       <h1 class="glitch-text text-5xl font-semibold tracking-tight text-amber-100 mb-4">Divine Corruption</h1>
       <p class="text-sm text-zinc-400 mb-6">Story, lore, characters, and persistent self-hosted roleplay.</p>
-      <button id="btn-enter-splash" class="neu-btn-primary rounded-2xl px-6 py-3 font-semibold">Enter</button>
+      <div class="splash-progress-track" aria-hidden="true">
+        <div id="splash-progress" class="splash-progress-bar"></div>
+      </div>
+      <div id="splash-status" class="mt-4 text-[11px] uppercase tracking-[0.28em] text-zinc-500">Opening sacred gate</div>
     </div>
   </div>
 
   <section id="auth-screen" class="fixed inset-0 z-[160] hidden flex items-center justify-center p-6">
-    <div class="w-full max-w-md neu-card p-7">
-      <h2 class="text-2xl font-semibold text-amber-100">Sacred Gate</h2>
-      <p class="text-sm text-zinc-400 mt-1 mb-5">Enter your PIN to continue.</p>
-      <label class="text-xs text-zinc-400">PIN</label>
-      <input id="auth-pin-input" type="password" inputmode="numeric" class="neu-input mt-1" />
-      <div id="auth-error" class="hidden mt-3 text-sm text-red-400"></div>
-      <button id="auth-submit-btn" class="mt-5 w-full neu-btn-primary rounded-2xl py-3 font-semibold">Enter</button>
-      <button id="auth-divinity-btn" class="mt-3 w-full neu-btn rounded-2xl py-3 text-sm">Open Divinity Zone</button>
-      <button id="auth-skip-btn" class="mt-3 w-full text-xs text-zinc-500">Remove PIN</button>
+    <div class="auth-portal w-full max-w-md neu-card overflow-hidden">
+      <div class="auth-portal-banner">
+        <img src="./assets/divinelogo.jpg" class="auth-logo" alt="Divine Corruption" />
+        <div class="min-w-0">
+          <div class="text-[10px] uppercase tracking-[0.28em] text-amber-400">Divine Corruption</div>
+          <h2 id="auth-title" class="mt-1 text-2xl font-semibold text-amber-100">Sign In</h2>
+        </div>
+      </div>
+      <div class="p-7">
+        <p id="auth-subtitle" class="text-sm text-zinc-400 mb-5">Enter your PIN to continue.</p>
+        <label id="auth-pin-label" class="text-xs text-zinc-400">PIN</label>
+        <input id="auth-pin-input" type="password" inputmode="numeric" autocomplete="current-password" class="neu-input mt-1" />
+        <div id="auth-confirm-wrap" class="hidden mt-3">
+          <label class="text-xs text-zinc-400">Confirm PIN</label>
+          <input id="auth-confirm-input" type="password" inputmode="numeric" autocomplete="new-password" class="neu-input mt-1" />
+        </div>
+        <div id="auth-error" class="hidden mt-3 text-sm text-red-400"></div>
+        <button id="auth-submit-btn" class="mt-5 w-full neu-btn-primary rounded-2xl py-3 font-semibold">Sign In</button>
+        <button id="auth-divinity-btn" class="mt-3 w-full neu-btn rounded-2xl py-3 text-sm">Open Public Hub</button>
+        <button id="auth-skip-btn" class="hidden mt-3 w-full text-xs text-zinc-500">Reset PIN</button>
+      </div>
     </div>
   </section>
 

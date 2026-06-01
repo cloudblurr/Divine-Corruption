@@ -13,7 +13,124 @@
   <div class="particle-field" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
-  <div id="splash-screen" class="fixed inset-0 z-[180] flex items-center justify-center p-6 bg-zinc-950">
+
+  <section id="landing-screen" class="landing-screen">
+    <section class="landing-hero">
+      <div class="landing-hero-overlay"></div>
+      <nav class="landing-nav">
+        <div class="landing-brand">
+          <img src="./assets/divinelogo.jpg" class="landing-brand-mark" alt="Divine Corruption" />
+          <span>Divine Corruption</span>
+        </div>
+        <div class="landing-nav-actions">
+          <button class="landing-ghost-btn" data-scroll-target="#landing-jesus">Jesus</button>
+          <button class="landing-ghost-btn" data-scroll-target="#landing-engine">Engine</button>
+          <button class="landing-primary-btn landing-launch-btn" data-launch-app>Enter App</button>
+        </div>
+      </nav>
+
+      <div class="landing-hero-content">
+        <div class="landing-age-badge">18+ fictional NSFW roleplay engine</div>
+        <h1 class="landing-title">Divine Corruption</h1>
+        <p class="landing-subtitle">
+          A private, persistent roleplay engine for religious characters, sacred lore, dark romance,
+          adult-only smut scenarios, and mythic storylines that remember what happened.
+        </p>
+        <div class="landing-hero-actions">
+          <button class="landing-primary-btn landing-launch-btn" data-launch-app>Launch Engine</button>
+          <button class="landing-secondary-btn" data-scroll-target="#landing-engine">See the System</button>
+        </div>
+        <div class="landing-signal-row" aria-label="Core capabilities">
+          <span>Ollama + cloud models</span>
+          <span>Persistent chats</span>
+          <span>Lorebooks</span>
+          <span>Media galleries</span>
+        </div>
+      </div>
+      <div class="landing-scroll-cue" aria-hidden="true"></div>
+    </section>
+
+    <section id="landing-engine" class="landing-band landing-engine-band">
+      <div class="landing-section-heading">
+        <div class="landing-kicker">The Engine</div>
+        <h2>Built for sacred drama, taboo tension, and long-form memory.</h2>
+        <p>
+          Divine Corruption is not a simple chatbot wrapper. It is a character vault, lore compiler,
+          chat archive, media shrine, and model router built for intense fictional roleplay with
+          religious, mythic, angelic, demonic, saintly, and corrupted archetypes.
+        </p>
+      </div>
+      <div class="landing-feature-grid">
+        <article class="landing-feature-card">
+          <span class="landing-feature-index">01</span>
+          <h3>Religious Character Forge</h3>
+          <p>Create prophets, saints, fallen angels, messiahs, cult leaders, demons, or original sacred archetypes with story-first JSON cards.</p>
+        </article>
+        <article class="landing-feature-card">
+          <span class="landing-feature-index">02</span>
+          <h3>NSFW Story Mode</h3>
+          <p>Designed for consenting adult fiction, dark romance, corruption arcs, kink tags, and private smut roleplay without losing the larger plot.</p>
+        </article>
+        <article class="landing-feature-card">
+          <span class="landing-feature-index">03</span>
+          <h3>Persistent Memory</h3>
+          <p>Chats, settings, lorebooks, galleries, nodes, and character data persist through the app database instead of vanishing after navigation.</p>
+        </article>
+        <article class="landing-feature-card">
+          <span class="landing-feature-index">04</span>
+          <h3>Model Control</h3>
+          <p>Route scenes through local Ollama models, Gemini, Puter/Grok, and other configured providers while keeping character context attached.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="landing-jesus" class="landing-jesus-band">
+      <div class="landing-jesus-media">
+        <img src="https://i.imgur.com/rlLwlL4.jpeg" alt="Jesus character portrait" />
+      </div>
+      <div class="landing-jesus-copy">
+        <div class="landing-kicker">Highlighted Character</div>
+        <h2>Jesus as a mythic roleplay anchor.</h2>
+        <p>
+          The bundled Jesus profile gives the engine a charged starting point: compassion, authority,
+          temptation, forbidden devotion, apocalyptic symbolism, and adult-only corruption arcs
+          framed as fictional storytelling.
+        </p>
+        <div class="landing-pill-row">
+          <span>Sacred lore</span>
+          <span>Slow-burn scenes</span>
+          <span>Dialogue TTS</span>
+          <span>Attached galleries</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-band landing-showcase-band">
+      <div class="landing-section-heading">
+        <div class="landing-kicker">Inside the App</div>
+        <h2>Everything a private roleplay engine needs after the first message.</h2>
+      </div>
+      <div class="landing-showcase-grid">
+        <div class="landing-showcase-item">
+          <img src="./assets/divinelogo.jpg" alt="Divine Corruption branding" />
+          <h3>Branded launch flow</h3>
+          <p>Animated glitch logo, protected sign-in, and a dedicated app portal.</p>
+        </div>
+        <div class="landing-showcase-item">
+          <img src="https://i.imgur.com/rlLwlL4.jpeg" alt="Religious roleplay character" />
+          <h3>Character dashboard</h3>
+          <p>Save imported characters, avatars, lorebooks, galleries, chat nodes, and scenario data.</p>
+        </div>
+        <div class="landing-showcase-item landing-showcase-text">
+          <h3>Public Divinity Zone</h3>
+          <p>Share and import character JSONs through a public repository hub while keeping private app logs behind sign-in.</p>
+          <button class="landing-secondary-btn" data-launch-app>Start Creating</button>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <div id="splash-screen" class="fixed inset-0 z-[180] hidden flex items-center justify-center p-6 bg-zinc-950">
     <div class="splash-shell max-w-xl text-center p-8">
       <div class="glitch-container splash-logo-frame mx-auto mb-6">
         <img src="./assets/divinelogo.jpg" class="glitch-img" alt="Divine Corruption logo" />

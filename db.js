@@ -305,14 +305,25 @@ export async function getDivinityMeta() {
 const AUTH_KEY = 'auth_config';
 
 export async function getAuthConfig() {
+  if (typeof globalThis.localStorage !== 'undefined') {
+    const raw = globalThis.localStorage.getItem(AUTH_KEY);
+    if (raw) {
+      try { return JSON.parse(raw); } catch (_) {}
+    }
+    return { pinHash: null, enabled: false };
+  }
   return await dbGet(AUTH_KEY) || { pinHash: null, enabled: false };
 }
 
 export async function setAuthConfig(config) {
+  if (typeof globalThis.localStorage !== 'undefined') {
+    globalThis.localStorage.setItem(AUTH_KEY, JSON.stringify(config));
+    return;
+  }
   await dbSet(AUTH_KEY, config);
 }
 
-// Simple hash for PIN (not cryptographic — just obfuscation for client-side)
+// Simple hash for PIN (not cryptographic — just obfuscation for local client-side auth)
 export function hashPin(pin) {
   let hash = 0;
   const salt = 'divine_corruption_v1_';

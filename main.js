@@ -31,17 +31,52 @@ async function bootstrap() {
   const state = await initState();
   maybeWarmupModels(state);
   
+  const landing = document.getElementById('landing-screen');
   const splash = document.getElementById('splash-screen');
   const uploadScreen = document.getElementById('upload-screen');
   const dashboard = document.getElementById('dashboard');
 
+  await setupLanding(landing);
   await runSplash(splash);
   await proceedAfterSplash(state, uploadScreen, dashboard);
+}
+
+function setupLanding(landing) {
+  if (!landing) return Promise.resolve();
+
+  document.getElementById('splash-screen')?.classList.add('hidden');
+  document.getElementById('auth-screen')?.classList.add('hidden');
+  document.getElementById('upload-screen')?.classList.add('hidden');
+  document.getElementById('dashboard')?.classList.add('hidden');
+  landing.classList.remove('hidden', 'landing-exiting');
+
+  landing.querySelectorAll('[data-scroll-target]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.querySelector(btn.dataset.scrollTarget);
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, { once: false });
+  });
+
+  return new Promise(resolve => {
+    let launched = false;
+    landing.querySelectorAll('[data-launch-app]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (launched) return;
+        launched = true;
+        landing.classList.add('landing-exiting');
+        setTimeout(() => {
+          landing.classList.add('hidden');
+          resolve();
+        }, 340);
+      });
+    });
+  });
 }
 
 function runSplash(splash) {
   if (!splash) return Promise.resolve();
 
+  document.getElementById('landing-screen')?.classList.add('hidden');
   document.getElementById('auth-screen')?.classList.add('hidden');
   document.getElementById('upload-screen')?.classList.add('hidden');
   document.getElementById('dashboard')?.classList.add('hidden');
@@ -85,7 +120,7 @@ async function proceedAfterSplash(state, uploadScreen, dashboard) {
     // No PIN set or already authed
     proceedToApp(state, uploadScreen, dashboard);
   }
-  // If not passed, auth screen is showing. User either enters PIN, goes to Divinity Zone, or removes PIN.
+  // If not passed, auth screen is showing. User can sign in or open the public hub.
 }
 
 function proceedToApp(state, uploadScreen, dashboard) {

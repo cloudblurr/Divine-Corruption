@@ -1,7 +1,7 @@
 # Divine Corruption
 
 Static roleplay app with local dev-server support for SQLite persistence,
-Cloudflare-backed storage, Ollama/Gemini/Puter model routing, and character
+Cloudflare-backed storage, Ollama/Gemini/Puter/Gateway model routing, and character
 media workflows.
 
 ## GitHub Pages
@@ -14,8 +14,8 @@ https://cloudblurr.github.io/Divine-Corruption/
 ```
 
 GitHub Pages can host the static interface, but it cannot run `dev-server.mjs`.
-Use the local dev server for Ollama, local SQLite, Puter token proxying, and
-ElevenLabs proxying.
+Use the local dev server for Ollama, local SQLite, Puter token proxying,
+Gateway key proxying, and ElevenLabs proxying.
 
 ## Files Included
 - `index.html`
@@ -27,6 +27,7 @@ ElevenLabs proxying.
 - `locales/en.json`
 - `services/lore-service.js`
 - `utils/ai.js`
+- `utils/gateway.js`
 - `ui/auth.js`
 - `ui/biblicalai.js`
 - `ui/blessingmaker.js`
@@ -185,6 +186,43 @@ POST /puter/chat
 The default Grok model is `grok-4-1-fast-non-reasoning`, with model refresh
 available from Settings.
 
+## Gateway / HF Local
+
+Gateway support is available in Settings -> Roleplay Engine -> Provider as
+`Gateway / HF Local`. The browser talks to the local dev server at `/gateway`,
+and the dev server sends requests to the OpenAI-compatible endpoint:
+
+```text
+http://127.0.0.1:11435/v1
+```
+
+The Gateway API key is intentionally not stored in app source or browser
+settings. The dev server reads it from one of these places:
+
+```powershell
+$env:GATEWAY_API_KEY = "<key>"
+node dev-server.mjs 5174
+```
+
+or:
+
+```powershell
+$env:GATEWAY_API_KEY_FILE = "C:\Users\domo\Documents\HF\.gateway\api-key.txt"
+node dev-server.mjs 5174
+```
+
+If neither env var is set, the dev server also checks
+`C:\Users\domo\Documents\HF\.gateway\api-key.txt` by default. Useful endpoints:
+
+```text
+GET  /gateway/health
+GET  /gateway/models
+POST /gateway/chat
+```
+
+The default Gateway model is `Sao10K/L3-8B-Stheno-v3.2`, with model refresh
+available from Settings.
+
 ## Cloudflare R2 Media
 
 Cloudflare Worker/R2 files live in `cloudflare/`:
@@ -215,6 +253,8 @@ reference images all upload to R2 through that Worker.
 - JSZip (used for this export) is loaded from CDN at runtime.
 - Text model calls now use Ollama `/api/chat` when an Ollama model is selected.
 - Puter/Grok model calls use the local `/puter/chat` proxy so the auth token
+  stays server-side.
+- Gateway model calls use the local `/gateway/chat` proxy so the HF Gateway key
   stays server-side.
 - Cloudflare API deployment may require re-authentication; an API call from this
   session returned Cloudflare error `10000`.

@@ -31,6 +31,14 @@ import {
   PUTER_GROK_MODELS,
   fetchPuterModels
 } from '../utils/puter.js';
+import {
+  DEFAULT_GATEWAY_CONTINUATION_LIMIT,
+  DEFAULT_GATEWAY_ENDPOINT,
+  DEFAULT_GATEWAY_MAX_TOKENS,
+  DEFAULT_GATEWAY_MODEL_ID,
+  GATEWAY_ROLEPLAY_MODELS,
+  fetchGatewayModels
+} from '../utils/gateway.js';
 import { exportAsChubTavernJSON } from '../state.js';
 import { getAuthConfig, setAuthConfig, hashPin, dbRemove, getDataEndpoint, setDataEndpoint } from '../db.js';
 import { showPinSetupModal } from './auth.js';
@@ -55,6 +63,12 @@ function getRoleplayModelOptions(settings = {}) {
       : PUTER_GROK_MODELS;
   }
 
+  if (settings.aiProvider === 'gateway') {
+    return settings.gatewayAvailableModels?.length
+      ? settings.gatewayAvailableModels
+      : GATEWAY_ROLEPLAY_MODELS;
+  }
+
   const source = settings.ollamaAvailableModels?.length
     ? settings.ollamaAvailableModels
     : UNCENSORED_ROLEPLAY_MODELS;
@@ -67,6 +81,8 @@ function renderRoleplayOptions(settings = {}) {
       ? DEFAULT_GEMINI_MODEL_ID
       : settings.aiProvider === 'puter'
         ? DEFAULT_PUTER_MODEL_ID
+        : settings.aiProvider === 'gateway'
+          ? DEFAULT_GATEWAY_MODEL_ID
       : toOllamaModelId('dolphin-mistral:latest')
   );
   return getRoleplayModelOptions(settings).map(m => `
@@ -151,13 +167,14 @@ function renderSettingsPanel(panel) {
           </div>
           <h3 class="font-semibold text-lg">Roleplay Engine</h3>
         </div>
-        <p class="text-sm mb-4" style="color:var(--muted-foreground);">Choose the provider used for roleplay responses. Ollama stays local; Gemini and Puter/Grok are cloud-backed and may enforce provider safeguards.</p>
+        <p class="text-sm mb-4" style="color:var(--muted-foreground);">Choose the provider used for roleplay responses. Ollama and Gateway stay local; Gemini and Puter/Grok are cloud-backed and may enforce provider safeguards.</p>
 
         <label class="block text-[10px] uppercase tracking-widest mb-1" style="color:var(--muted-foreground);">Provider</label>
         <select id="settings-ai-provider" class="w-full neu-input text-sm mb-3">
-          <option value="ollama" ${!['gemini', 'puter'].includes(settings.aiProvider) ? 'selected' : ''}>Ollama Local / VM</option>
+          <option value="ollama" ${!['gemini', 'puter', 'gateway'].includes(settings.aiProvider) ? 'selected' : ''}>Ollama Local / VM</option>
           <option value="gemini" ${settings.aiProvider === 'gemini' ? 'selected' : ''}>Gemini API (experimental)</option>
           <option value="puter" ${settings.aiProvider === 'puter' ? 'selected' : ''}>Puter.com / xAI Grok</option>
+          <option value="gateway" ${settings.aiProvider === 'gateway' ? 'selected' : ''}>Gateway / HF Local</option>
         </select>
 
         <label class="block text-[10px] uppercase tracking-widest mb-1" style="color:var(--muted-foreground);">Model</label>
@@ -169,7 +186,7 @@ function renderSettingsPanel(panel) {
           New Dawn mode: new or reset scenarios begin at the opening scene until compiled memories exist
         </label>
 
-        <div id="settings-ollama-config" class="mt-4 ${settings.aiProvider === 'ollama' || !['gemini', 'puter'].includes(settings.aiProvider) ? '' : 'hidden'}">
+        <div id="settings-ollama-config" class="mt-4 ${settings.aiProvider === 'ollama' || !['gemini', 'puter', 'gateway'].includes(settings.aiProvider) ? '' : 'hidden'}">
         <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
           <input id="settings-ollama-endpoint" class="neu-input text-sm"
                  value="${settings.ollamaEndpoint || DEFAULT_OLLAMA_ENDPOINT}"
@@ -243,11 +260,35 @@ function renderSettingsPanel(panel) {
             <button id="settings-test-puter" class="neu-btn px-4 py-2 text-xs rounded-xl">Test Puter</button>
           </div>
         </div>
+        <div id="settings-gateway-config" class="mt-4 space-y-3 ${settings.aiProvider === 'gateway' ? '' : 'hidden'}">
+          <input id="settings-gateway-endpoint" class="neu-input text-sm"
+                 value="${settings.gatewayEndpoint || DEFAULT_GATEWAY_ENDPOINT}"
+                 placeholder="/gateway" />
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="block">
+              <span class="mb-1 block text-[10px] uppercase tracking-widest" style="color:var(--muted-foreground);">Max response tokens</span>
+              <input id="settings-gateway-max-tokens" class="neu-input text-sm" type="number" min="256" max="32768" step="256"
+                     value="${settings.gatewayMaxTokens || DEFAULT_GATEWAY_MAX_TOKENS}" />
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-[10px] uppercase tracking-widest" style="color:var(--muted-foreground);">Auto-continues</span>
+              <input id="settings-gateway-continuations" class="neu-input text-sm" type="number" min="0" max="5" step="1"
+                     value="${settings.gatewayContinuationLimit ?? DEFAULT_GATEWAY_CONTINUATION_LIMIT}" />
+            </label>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+            <div class="text-[10px] self-center" style="color:var(--muted-foreground);">Uses the dev server key from Documents/HF/.gateway/api-key.txt and proxies to http://127.0.0.1:11435/v1. The key is not saved in browser settings.</div>
+            <button id="settings-refresh-gateway" class="neu-btn px-4 py-2 text-xs rounded-xl">Refresh Gateway</button>
+            <button id="settings-test-gateway" class="neu-btn px-4 py-2 text-xs rounded-xl">Test Gateway</button>
+          </div>
+        </div>
         <div id="settings-ollama-status" class="text-[10px] text-red-400/70 mt-2">
           ${settings.aiProvider === 'gemini'
             ? `Gemini endpoint: ${settings.geminiEndpoint || DEFAULT_GEMINI_ENDPOINT}. ${getRoleplayModelOptions(settings).length} model options loaded.`
             : settings.aiProvider === 'puter'
               ? `Puter endpoint: ${settings.puterEndpoint || DEFAULT_PUTER_ENDPOINT}. ${getRoleplayModelOptions(settings).length} Grok model options loaded.`
+              : settings.aiProvider === 'gateway'
+                ? `Gateway endpoint: ${settings.gatewayEndpoint || DEFAULT_GATEWAY_ENDPOINT}. ${getRoleplayModelOptions(settings).length} model options loaded.`
             : `Endpoint: ${settings.ollamaEndpoint || DEFAULT_OLLAMA_ENDPOINT}. ${getRoleplayModelOptions(settings).length} model options loaded.`}
         </div>
       </div>
@@ -433,13 +474,21 @@ function setupSettingsListeners(panel) {
         ? (current.roleplayModelId?.startsWith('gemini:') ? current.roleplayModelId : DEFAULT_GEMINI_MODEL_ID)
         : provider === 'puter'
           ? (current.roleplayModelId?.startsWith('puter:') ? current.roleplayModelId : DEFAULT_PUTER_MODEL_ID)
+          : provider === 'gateway'
+            ? (current.roleplayModelId?.startsWith('gateway:') ? current.roleplayModelId : DEFAULT_GATEWAY_MODEL_ID)
           : (current.roleplayModelId?.startsWith('ollama:') ? current.roleplayModelId : toOllamaModelId('dolphin-mistral:latest'));
       await saveSettings({
         ...current,
         aiProvider: provider,
         roleplayModelId: nextModel
       });
-      showToast(provider === 'gemini' ? 'Gemini provider selected.' : provider === 'puter' ? 'Puter/Grok provider selected.' : 'Ollama provider selected.', 'success');
+      showToast(provider === 'gemini'
+        ? 'Gemini provider selected.'
+        : provider === 'puter'
+          ? 'Puter/Grok provider selected.'
+          : provider === 'gateway'
+            ? 'Gateway provider selected.'
+            : 'Ollama provider selected.', 'success');
       renderSettingsPanel(panel);
       setupSettingsListeners(panel);
     };
@@ -453,6 +502,8 @@ function setupSettingsListeners(panel) {
         ? 'gemini'
         : modelSelect.value.startsWith('puter:')
           ? 'puter'
+          : modelSelect.value.startsWith('gateway:')
+            ? 'gateway'
           : 'ollama';
       const newSettings = {
         ...getState().settings,
@@ -775,6 +826,116 @@ function setupSettingsListeners(panel) {
     };
   }
 
+  const gatewayEndpointInput = panel.querySelector('#settings-gateway-endpoint');
+  const gatewayMaxTokensInput = panel.querySelector('#settings-gateway-max-tokens');
+  const gatewayContinuationInput = panel.querySelector('#settings-gateway-continuations');
+  const refreshGatewayBtn = panel.querySelector('#settings-refresh-gateway');
+  const testGatewayBtn = panel.querySelector('#settings-test-gateway');
+
+  if (gatewayEndpointInput) {
+    let gatewayEndpointSaveTimeout;
+    gatewayEndpointInput.oninput = () => {
+      clearTimeout(gatewayEndpointSaveTimeout);
+      gatewayEndpointSaveTimeout = setTimeout(async () => {
+        await saveSettings({ ...getState().settings, gatewayEndpoint: gatewayEndpointInput.value.trim() || DEFAULT_GATEWAY_ENDPOINT });
+        if (ollamaStatus) ollamaStatus.textContent = `Gateway endpoint saved: ${gatewayEndpointInput.value.trim() || DEFAULT_GATEWAY_ENDPOINT}`;
+      }, 600);
+    };
+  }
+
+  if (gatewayMaxTokensInput) {
+    let gatewayMaxTokensSaveTimeout;
+    gatewayMaxTokensInput.oninput = () => {
+      clearTimeout(gatewayMaxTokensSaveTimeout);
+      gatewayMaxTokensSaveTimeout = setTimeout(async () => {
+        const maxTokens = Math.max(256, Number(gatewayMaxTokensInput.value || DEFAULT_GATEWAY_MAX_TOKENS));
+        await saveSettings({ ...getState().settings, gatewayMaxTokens: maxTokens });
+        if (ollamaStatus) ollamaStatus.textContent = `Gateway max tokens saved: ${maxTokens}.`;
+      }, 500);
+    };
+  }
+
+  if (gatewayContinuationInput) {
+    let gatewayContinuationSaveTimeout;
+    gatewayContinuationInput.oninput = () => {
+      clearTimeout(gatewayContinuationSaveTimeout);
+      gatewayContinuationSaveTimeout = setTimeout(async () => {
+        const continuationLimit = Math.max(0, Number(gatewayContinuationInput.value || 0));
+        await saveSettings({ ...getState().settings, gatewayContinuationLimit: continuationLimit });
+        if (ollamaStatus) ollamaStatus.textContent = `Gateway auto-continues saved: ${continuationLimit}.`;
+      }, 500);
+    };
+  }
+
+  if (refreshGatewayBtn && gatewayEndpointInput && modelSelect) {
+    refreshGatewayBtn.onclick = async () => {
+      const endpoint = gatewayEndpointInput.value.trim() || DEFAULT_GATEWAY_ENDPOINT;
+      refreshGatewayBtn.disabled = true;
+      refreshGatewayBtn.textContent = 'Refreshing...';
+      if (ollamaStatus) ollamaStatus.textContent = `Loading Gateway models from ${endpoint}...`;
+
+      try {
+        const models = await fetchGatewayModels(endpoint);
+        const newSettings = {
+          ...getState().settings,
+          aiProvider: 'gateway',
+          gatewayEndpoint: endpoint,
+          gatewayAvailableModels: models
+        };
+        await saveSettings(newSettings);
+        modelSelect.innerHTML = renderRoleplayOptions(newSettings);
+        if (!models.some(m => m.id === modelSelect.value) && models[0]) {
+          modelSelect.value = models[0].id;
+          await saveSettings({ ...newSettings, roleplayModelId: models[0].id });
+        }
+        if (ollamaStatus) ollamaStatus.textContent = `Loaded ${models.length} Gateway model options.`;
+        showToast(`Loaded ${models.length} Gateway model${models.length === 1 ? '' : 's'}.`, 'success');
+      } catch (err) {
+        console.error('Gateway model refresh failed:', err);
+        if (ollamaStatus) ollamaStatus.textContent = err.message || 'Could not load Gateway models.';
+        showToast('Could not load Gateway models.', 'error');
+      } finally {
+        refreshGatewayBtn.disabled = false;
+        refreshGatewayBtn.textContent = 'Refresh Gateway';
+      }
+    };
+  }
+
+  if (testGatewayBtn) {
+    testGatewayBtn.onclick = async () => {
+      testGatewayBtn.disabled = true;
+      testGatewayBtn.textContent = 'Testing...';
+      if (ollamaStatus) ollamaStatus.textContent = 'Testing Gateway...';
+      try {
+        const { callTextModel } = await import('../utils/ai.js');
+        const settings = {
+          ...getState().settings,
+          aiProvider: 'gateway',
+          roleplayModelId: modelSelect?.value?.startsWith('gateway:') ? modelSelect.value : DEFAULT_GATEWAY_MODEL_ID,
+          gatewayEndpoint: gatewayEndpointInput?.value?.trim() || DEFAULT_GATEWAY_ENDPOINT,
+          gatewayMaxTokens: Math.max(256, Number(gatewayMaxTokensInput?.value || DEFAULT_GATEWAY_MAX_TOKENS)),
+          gatewayContinuationLimit: Math.max(0, Number(gatewayContinuationInput?.value || DEFAULT_GATEWAY_CONTINUATION_LIMIT))
+        };
+        await saveSettings(settings);
+        const text = await callTextModel({
+          modelId: settings.roleplayModelId,
+          settings,
+          timeoutMs: 60000,
+          messages: [{ role: 'user', content: 'Reply with OK.' }]
+        });
+        if (ollamaStatus) ollamaStatus.textContent = `Gateway responded: ${(text || '').slice(0, 80) || 'empty response'}`;
+        showToast('Gateway responded.', 'success');
+      } catch (err) {
+        console.error('Gateway test failed:', err);
+        if (ollamaStatus) ollamaStatus.textContent = err.message || 'Gateway test failed.';
+        showToast('Gateway test failed.', 'error');
+      } finally {
+        testGatewayBtn.disabled = false;
+        testGatewayBtn.textContent = 'Test Gateway';
+      }
+    };
+  }
+
   const dataEndpointInput = panel.querySelector('#settings-data-endpoint');
   if (dataEndpointInput) {
     let dataSaveTimeout;
@@ -1040,6 +1201,7 @@ function setupSettingsListeners(panel) {
           'services/lore-service.js',
           'utils/ai.js',
           'utils/app-db.js',
+          'utils/gateway.js',
           'utils/gemini.js',
           'utils/media-store.js',
           'utils/ollama.js',
@@ -1092,12 +1254,14 @@ ${sourceFiles.map(f => `- \`${f}\``).join('\n')}
 ## How to Use
 Run \`node dev-server.mjs 5174\` from this folder and open
 \`http://localhost:5174\`. The dev server provides SQLite persistence,
-Ollama/Gemini/Puter proxies, and local media fallback.
+Ollama/Gemini/Puter/Gateway proxies, and local media fallback.
 
 ## Notes
 - Tailwind CSS is loaded from CDN.
 - JSZip (used for this export) is loaded from CDN at runtime.
 - Puter/Grok calls use the local \`/puter/chat\` proxy so the auth token stays
+  server-side.
+- Gateway calls use the local \`/gateway/chat\` proxy so the HF Gateway key stays
   server-side.
 ${errors.length ? `\n## Missing Files\n${errors.map(e => `- \`${e}\``).join('\n')}` : ''}
 `);

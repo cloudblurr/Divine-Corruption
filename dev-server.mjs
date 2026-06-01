@@ -12,11 +12,14 @@ const ollamaModelsPath = process.env.OLLAMA_MODELS || path.join(os.homedir(), '.
 const puterOpenAiBase = (process.env.PUTER_OPENAI_BASE || 'https://api.puter.com/puterai/openai/v1').replace(/\/+$/, '');
 const puterModelsUrl = process.env.PUTER_MODELS_URL || 'https://api.puter.com/puterai/chat/models/details';
 const puterAuthTokenFile = process.env.PUTER_AUTH_TOKEN_FILE || path.join(os.homedir(), 'Desktop', 'authtoken.txt');
+const gatewayOpenAiBase = (process.env.GATEWAY_OPENAI_BASE || process.env.HF_GATEWAY_BASE_URL || 'http://127.0.0.1:11435/v1').replace(/\/+$/, '');
+const gatewayApiKeyFile = process.env.GATEWAY_API_KEY_FILE || process.env.HF_GATEWAY_API_KEY_FILE || path.join(os.homedir(), 'Documents', 'HF', '.gateway', 'api-key.txt');
 const dataRoot = path.join(root, '.data');
 const sqlitePath = path.join(dataRoot, 'divine-corruption.sqlite');
 const localMediaRoot = path.join(root, '.media-cache');
 let sqliteDb;
 let cachedPuterAuthToken = null;
+let cachedGatewayApiKey = null;
 
 const contentTypes = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -44,7 +47,9 @@ const server = http.createServer(async (req, res) => {
         ollamaTarget,
         ollamaModelsPath,
         sqlitePath,
-        puterConfigured: Boolean(await getPuterAuthToken().catch(() => ''))
+        puterConfigured: Boolean(await getPuterAuthToken().catch(() => '')),
+        gatewayOpenAiBase,
+        gatewayConfigured: Boolean(await getGatewayApiKey().catch(() => ''))
       });
       return;
     }
@@ -113,6 +118,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (url.pathname.startsWith('/gateway/') && (req.method === 'GET' || req.method === 'POST' || req.method === 'OPTIONS')) {
+      await handleGateway(req, res, url);
+      return;
+    }
+
     await serveStatic(res, url);
   } catch (err) {
     console.error('[dev-server]', err);
@@ -126,6 +136,7 @@ server.listen(port, () => {
   console.log(`Dev server: http://localhost:${port}`);
   console.log(`Ollama proxy: /ollama -> ${ollamaTarget}`);
   console.log(`Ollama models: ${ollamaModelsPath}`);
+  console.log(`Gateway proxy: /gateway -> ${gatewayOpenAiBase}`);
   console.log(`SQLite DB: ${sqlitePath}`);
 });
 
@@ -364,6 +375,83 @@ async function handlePuter(req, res, url) {
   sendJson(res, { ok: false, error: 'Puter route not found' }, 404);
 }
 
+async function handleGateway(req, res, url) {
+  if (req.method === 'OPTIONS') {
+    setCors(res);
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  if (url.pathname === '/gateway/health' && req.method === 'GET') {
+    sendJson(res, {
+      ok: true,
+      baseUrl: gatewayOpenAiBase,
+      configured: Boolean(await getGatewayApiKey().catch(() => ''))
+    });
+    return;
+  }
+
+  if (url.pathname === '/gateway/models' && req.method === 'GET') {
+    const token = await getGatewayApiKey().catch(() => '');
+    if (!token) {
+      setCors(res);
+      sendJson(res, {
+        error: 'Gateway API key missing. Set GATEWAY_API_KEY, GATEWAY_API_KEY_FILE, or keep the key at C:\\Users\\domo\\Documents\\HF\\.gateway\\api-key.txt before starting the dev server.'
+      }, 400);
+      return;
+    }
+
+    const response = await fetch(`${gatewayOpenAiBase}/models`, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    setCors(res);
+    res.writeHead(response.status, {
+      'content-type': response.headers.get('content-type') || 'application/json'
+    });
+    res.end(Buffer.from(await response.arrayBuffer()));
+    return;
+  }
+
+  if (url.pathname === '/gateway/chat' && req.method === 'POST') {
+    const body = await parseJsonBody(req);
+    const token = body.apiKey || await getGatewayApiKey().catch(() => '');
+    if (!token) {
+      setCors(res);
+      sendJson(res, {
+        error: 'Gateway API key missing. Set GATEWAY_API_KEY, GATEWAY_API_KEY_FILE, or keep the key at C:\\Users\\domo\\Documents\\HF\\.gateway\\api-key.txt before starting the dev server.'
+      }, 400);
+      return;
+    }
+
+    const request = body.request || {};
+    request.model = sanitizeOpenAiModel(body.model || request.model || 'Sao10K/L3-8B-Stheno-v3.2');
+
+    const response = await fetch(`${gatewayOpenAiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(request)
+    });
+
+    setCors(res);
+    res.writeHead(response.status, {
+      'content-type': response.headers.get('content-type') || 'application/json'
+    });
+    res.end(Buffer.from(await response.arrayBuffer()));
+    return;
+  }
+
+  sendJson(res, { ok: false, error: 'Gateway route not found' }, 404);
+}
+
 async function handleDbKv(req, res, url) {
   if (req.method === 'OPTIONS') {
     setCors(res);
@@ -544,7 +632,7 @@ function sendText(res, status, text) {
 function setCors(res) {
   res.setHeader('access-control-allow-origin', '*');
   res.setHeader('access-control-allow-methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('access-control-allow-headers', 'content-type,x-media-upload');
+  res.setHeader('access-control-allow-headers', 'content-type,authorization,x-media-upload');
 }
 
 async function handleLocalMediaUpload(req, res, url) {
@@ -624,6 +712,15 @@ async function getPuterAuthToken() {
   if (cachedPuterAuthToken) return cachedPuterAuthToken;
   const token = (await fs.readFile(puterAuthTokenFile, 'utf8')).trim();
   cachedPuterAuthToken = token;
+  return token;
+}
+
+async function getGatewayApiKey() {
+  if (process.env.GATEWAY_API_KEY) return process.env.GATEWAY_API_KEY.trim();
+  if (process.env.HF_GATEWAY_API_KEY) return process.env.HF_GATEWAY_API_KEY.trim();
+  if (cachedGatewayApiKey) return cachedGatewayApiKey;
+  const token = (await fs.readFile(gatewayApiKeyFile, 'utf8')).trim();
+  cachedGatewayApiKey = token;
   return token;
 }
 

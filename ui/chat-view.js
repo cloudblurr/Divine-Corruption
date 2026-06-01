@@ -4,6 +4,7 @@ import { showToast } from './toast.js';
 import { callJesus, CLOUD_ROLEPLAY_MODELS, extractChatLore, UNCENSORED_ROLEPLAY_MODELS } from '../utils/ai.js';
 import { DEFAULT_VOICE_ID, speakCharacterText } from '../utils/tts.js';
 import { PUTER_GROK_MODELS } from '../utils/puter.js';
+import { GATEWAY_ROLEPLAY_MODELS } from '../utils/gateway.js';
 import { addPendingLore, getPendingLore, onLoreChange } from '../services/lore-service.js';
 import { initFloatingMedia, openMedia } from './floating-media.js';
 
@@ -105,6 +106,8 @@ function populateChatModelSelect() {
     ? CLOUD_ROLEPLAY_MODELS.filter(model => model.id?.startsWith('gemini:'))
     : settings.aiProvider === 'puter'
       ? (settings.puterAvailableModels?.length ? settings.puterAvailableModels : PUTER_GROK_MODELS)
+      : settings.aiProvider === 'gateway'
+        ? (settings.gatewayAvailableModels?.length ? settings.gatewayAvailableModels : GATEWAY_ROLEPLAY_MODELS)
       : settings.ollamaAvailableModels?.length ? settings.ollamaAvailableModels : UNCENSORED_ROLEPLAY_MODELS;
   select.innerHTML = models.map(m => `<option value="${m.id}" ${m.id === settings.roleplayModelId ? 'selected' : ''}>${m.name}</option>`).join('');
 }
@@ -277,7 +280,10 @@ function getSelectedChatModel() {
   if (settings.aiProvider === 'puter' && !selected?.startsWith('puter:')) {
     return settings.roleplayModelId;
   }
-  if (!['gemini', 'puter'].includes(settings.aiProvider) && !selected?.startsWith('ollama:')) {
+  if (settings.aiProvider === 'gateway' && !selected?.startsWith('gateway:')) {
+    return settings.roleplayModelId;
+  }
+  if (!['gemini', 'puter', 'gateway'].includes(settings.aiProvider) && !selected?.startsWith('ollama:')) {
     return settings.roleplayModelId;
   }
   return selected || settings.roleplayModelId;

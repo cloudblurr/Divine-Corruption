@@ -15,6 +15,12 @@ import {
   DEFAULT_PUTER_MAX_TOKENS,
   DEFAULT_PUTER_MODEL_ID
 } from './utils/puter.js';
+import {
+  DEFAULT_GATEWAY_CONTINUATION_LIMIT,
+  DEFAULT_GATEWAY_ENDPOINT,
+  DEFAULT_GATEWAY_MAX_TOKENS,
+  DEFAULT_GATEWAY_MODEL_ID
+} from './utils/gateway.js';
 
 const STORAGE_KEYS = {
   CHARACTER: 'character',
@@ -53,6 +59,9 @@ let state = {
     puterEndpoint: DEFAULT_PUTER_ENDPOINT,
     puterMaxTokens: DEFAULT_PUTER_MAX_TOKENS,
     puterContinuationLimit: DEFAULT_PUTER_CONTINUATION_LIMIT,
+    gatewayEndpoint: DEFAULT_GATEWAY_ENDPOINT,
+    gatewayMaxTokens: DEFAULT_GATEWAY_MAX_TOKENS,
+    gatewayContinuationLimit: DEFAULT_GATEWAY_CONTINUATION_LIMIT,
     cloudflareDataEndpoint: '',
     mediaStorageEndpoint: '/media',
     voiceId: DEFAULT_TTS_VOICE_ID,
@@ -265,6 +274,9 @@ function normalizeSettings(settings = {}) {
     puterEndpoint: DEFAULT_PUTER_ENDPOINT,
     puterMaxTokens: DEFAULT_PUTER_MAX_TOKENS,
     puterContinuationLimit: DEFAULT_PUTER_CONTINUATION_LIMIT,
+    gatewayEndpoint: DEFAULT_GATEWAY_ENDPOINT,
+    gatewayMaxTokens: DEFAULT_GATEWAY_MAX_TOKENS,
+    gatewayContinuationLimit: DEFAULT_GATEWAY_CONTINUATION_LIMIT,
     cloudflareDataEndpoint: '',
     mediaStorageEndpoint: '/media',
     newDawnMode: true,
@@ -283,6 +295,9 @@ function normalizeSettings(settings = {}) {
   if (next.aiProvider === 'puter' && !String(next.roleplayModelId || '').startsWith('puter:')) {
     next.roleplayModelId = DEFAULT_PUTER_MODEL_ID;
   }
+  if (next.aiProvider === 'gateway' && !String(next.roleplayModelId || '').startsWith('gateway:')) {
+    next.roleplayModelId = DEFAULT_GATEWAY_MODEL_ID;
+  }
   if (!next.ollamaEndpoint) next.ollamaEndpoint = DEFAULT_OLLAMA_ENDPOINT;
   if (!next.geminiEndpoint) next.geminiEndpoint = DEFAULT_GEMINI_ENDPOINT;
   if (!next.geminiSafetyThreshold) next.geminiSafetyThreshold = DEFAULT_GEMINI_SAFETY_THRESHOLD;
@@ -293,6 +308,9 @@ function normalizeSettings(settings = {}) {
   if (!next.puterEndpoint) next.puterEndpoint = DEFAULT_PUTER_ENDPOINT;
   if (!next.puterMaxTokens) next.puterMaxTokens = DEFAULT_PUTER_MAX_TOKENS;
   if (!next.puterContinuationLimit && next.puterContinuationLimit !== 0) next.puterContinuationLimit = DEFAULT_PUTER_CONTINUATION_LIMIT;
+  if (!next.gatewayEndpoint) next.gatewayEndpoint = DEFAULT_GATEWAY_ENDPOINT;
+  if (!next.gatewayMaxTokens) next.gatewayMaxTokens = DEFAULT_GATEWAY_MAX_TOKENS;
+  if (!next.gatewayContinuationLimit && next.gatewayContinuationLimit !== 0) next.gatewayContinuationLimit = DEFAULT_GATEWAY_CONTINUATION_LIMIT;
   if (!next.mediaStorageEndpoint) next.mediaStorageEndpoint = '/media';
   if (next.newDawnMode !== false) next.newDawnMode = true;
   return next;

@@ -174,6 +174,46 @@ endpoint:
 https://api.puter.com/puterai/openai/v1/chat/completions
 ```
 
+## Higher State AI / Puter Models
+
+Higher State AI is now available as its own Roleplay Engine provider. It uses the
+local dev server proxy at:
+
+```text
+/higherstate
+```
+
+The proxy signs into the deployed Higher State AI OpenWebUI backend and exposes:
+
+```text
+GET  /higherstate/models
+POST /higherstate/chat
+```
+
+By default it targets:
+
+```text
+https://higher-stateai-app.blnq.workers.dev
+```
+
+Override these before starting the dev server if needed:
+
+```powershell
+$env:HIGHERSTATE_BASE_URL="https://higher-stateai-app.blnq.workers.dev"
+$env:HIGHERSTATE_EMAIL="admin@localhost"
+$env:HIGHERSTATE_PASSWORD="your_password"
+node dev-server.mjs 5174
+```
+
+Settings -> Roleplay Engine -> Provider -> Higher State AI can refresh the live
+model list dynamically. The model picker will include Puter-backed xAI/Grok,
+Gemini, OpenAI, Claude, and any other models returned by Higher State AI.
+
+The app also seeds a `JesusEngine` character from the HolyCraft workspace
+(`C:\Users\domo\Documents\GitHub\holycraft\lib\character.ts`). Use the
+`Load JesusEngine` button on the character screen or in Settings to activate it;
+the app will select Higher State AI and the default `grok-3-mini` model for chat.
+
 For proxy mode, the auth token is intentionally not stored in app source or browser settings.
 The dev server reads it from one of these places:
 

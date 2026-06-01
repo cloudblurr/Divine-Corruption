@@ -4,7 +4,8 @@ import {
   getState, 
   saveSettings, 
   saveCharacter, 
-  getDefaultCharacter 
+  getDefaultCharacter,
+  getJesusEngineCharacter
 } from '../state.js';
 import { showToast } from './toast.js';
 import { CLOUD_ROLEPLAY_MODELS, UNCENSORED_ROLEPLAY_MODELS, normalizeAnyCharacterJSON, GLOBAL_SYSTEM_PROMPT } from '../utils/ai.js';
@@ -34,6 +35,14 @@ import {
   PUTER_GROK_MODELS,
   fetchPuterModels
 } from '../utils/puter.js';
+import {
+  DEFAULT_HIGHERSTATE_CONTINUATION_LIMIT,
+  DEFAULT_HIGHERSTATE_ENDPOINT,
+  DEFAULT_HIGHERSTATE_MAX_TOKENS,
+  DEFAULT_HIGHERSTATE_MODEL_ID,
+  HIGHERSTATE_ROLEPLAY_MODELS,
+  fetchHigherStateModels
+} from '../utils/higherstate.js';
 import {
   DEFAULT_GATEWAY_CONTINUATION_LIMIT,
   DEFAULT_GATEWAY_ENDPOINT,
@@ -66,6 +75,12 @@ function getRoleplayModelOptions(settings = {}) {
       : PUTER_GROK_MODELS;
   }
 
+  if (settings.aiProvider === 'higherstate') {
+    return settings.higherStateAvailableModels?.length
+      ? settings.higherStateAvailableModels
+      : HIGHERSTATE_ROLEPLAY_MODELS;
+  }
+
   if (settings.aiProvider === 'gateway') {
     return settings.gatewayAvailableModels?.length
       ? settings.gatewayAvailableModels
@@ -84,6 +99,8 @@ function renderRoleplayOptions(settings = {}) {
       ? DEFAULT_GEMINI_MODEL_ID
       : settings.aiProvider === 'puter'
         ? DEFAULT_PUTER_MODEL_ID
+        : settings.aiProvider === 'higherstate'
+          ? DEFAULT_HIGHERSTATE_MODEL_ID
         : settings.aiProvider === 'gateway'
           ? DEFAULT_GATEWAY_MODEL_ID
       : toOllamaModelId('dolphin-mistral:latest')
@@ -175,7 +192,8 @@ function renderSettingsPanel(panel) {
 
         <label class="block text-[10px] uppercase tracking-widest mb-1" style="color:var(--muted-foreground);">Provider</label>
         <select id="settings-ai-provider" class="w-full neu-input text-sm mb-3">
-          <option value="ollama" ${!['gemini', 'puter', 'gateway'].includes(settings.aiProvider) ? 'selected' : ''}>Ollama Local / VM</option>
+          <option value="ollama" ${!['gemini', 'puter', 'higherstate', 'gateway'].includes(settings.aiProvider) ? 'selected' : ''}>Ollama Local / VM</option>
+          <option value="higherstate" ${settings.aiProvider === 'higherstate' ? 'selected' : ''}>Higher State AI / Puter Models</option>
           <option value="gemini" ${settings.aiProvider === 'gemini' ? 'selected' : ''}>Gemini API (experimental)</option>
           <option value="puter" ${settings.aiProvider === 'puter' ? 'selected' : ''}>Puter.com / xAI Grok</option>
           <option value="gateway" ${settings.aiProvider === 'gateway' ? 'selected' : ''}>Gateway / HF Local</option>
@@ -189,8 +207,12 @@ function renderSettingsPanel(panel) {
           <input type="checkbox" id="settings-new-dawn-mode" ${settings.newDawnMode !== false ? 'checked' : ''} />
           New Dawn mode: new or reset scenarios begin at the opening scene until compiled memories exist
         </label>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button id="settings-load-jesusengine" class="neu-btn-primary px-4 py-2 text-xs rounded-xl">Load JesusEngine</button>
+          <span class="self-center text-[10px]" style="color:var(--muted-foreground);">Imports the HolyCraft workspace profile and selects Higher State AI.</span>
+        </div>
 
-        <div id="settings-ollama-config" class="mt-4 ${settings.aiProvider === 'ollama' || !['gemini', 'puter', 'gateway'].includes(settings.aiProvider) ? '' : 'hidden'}">
+        <div id="settings-ollama-config" class="mt-4 ${settings.aiProvider === 'ollama' || !['gemini', 'puter', 'higherstate', 'gateway'].includes(settings.aiProvider) ? '' : 'hidden'}">
         <div class="grid gap-3 sm:grid-cols-[1fr_auto]">
           <input id="settings-ollama-endpoint" class="neu-input text-sm"
                  value="${settings.ollamaEndpoint || DEFAULT_OLLAMA_ENDPOINT}"
@@ -241,6 +263,28 @@ function renderSettingsPanel(panel) {
             <option value="high" ${settings.geminiThinkingMode === 'high' ? 'selected' : ''}>High thinking</option>
           </select>
           <div class="text-[10px]" style="color:var(--muted-foreground);">Gemini may still block prompts or responses. Built-in protections cannot be disabled.</div>
+        </div>
+        <div id="settings-higherstate-config" class="mt-4 space-y-3 ${settings.aiProvider === 'higherstate' ? '' : 'hidden'}">
+          <input id="settings-higherstate-endpoint" class="neu-input text-sm"
+                 value="${settings.higherStateEndpoint || DEFAULT_HIGHERSTATE_ENDPOINT}"
+                 placeholder="/higherstate or http://localhost:3141/v1" />
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="block">
+              <span class="mb-1 block text-[10px] uppercase tracking-widest" style="color:var(--muted-foreground);">Max response tokens</span>
+              <input id="settings-higherstate-max-tokens" class="neu-input text-sm" type="number" min="256" max="32768" step="256"
+                     value="${settings.higherStateMaxTokens || DEFAULT_HIGHERSTATE_MAX_TOKENS}" />
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-[10px] uppercase tracking-widest" style="color:var(--muted-foreground);">Auto-continues</span>
+              <input id="settings-higherstate-continuations" class="neu-input text-sm" type="number" min="0" max="5" step="1"
+                     value="${settings.higherStateContinuationLimit ?? DEFAULT_HIGHERSTATE_CONTINUATION_LIMIT}" />
+            </label>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+            <div class="text-[10px] self-center" style="color:var(--muted-foreground);">Uses the dev-server /higherstate proxy by default. The proxy signs into Higher State AI and exposes the dynamic Puter-backed model catalog.</div>
+            <button id="settings-refresh-higherstate" class="neu-btn px-4 py-2 text-xs rounded-xl">Refresh Higher State</button>
+            <button id="settings-test-higherstate" class="neu-btn px-4 py-2 text-xs rounded-xl">Test Higher State</button>
+          </div>
         </div>
         <div id="settings-puter-config" class="mt-4 space-y-3 ${settings.aiProvider === 'puter' ? '' : 'hidden'}">
           <label class="block">
@@ -300,6 +344,8 @@ function renderSettingsPanel(panel) {
         <div id="settings-ollama-status" class="text-[10px] text-red-400/70 mt-2">
           ${settings.aiProvider === 'gemini'
             ? `Gemini endpoint: ${settings.geminiEndpoint || DEFAULT_GEMINI_ENDPOINT}. ${getRoleplayModelOptions(settings).length} model options loaded.`
+            : settings.aiProvider === 'higherstate'
+              ? `Higher State AI endpoint: ${settings.higherStateEndpoint || DEFAULT_HIGHERSTATE_ENDPOINT}. ${getRoleplayModelOptions(settings).length} model options loaded.`
             : settings.aiProvider === 'puter'
               ? `Puter ${puterTransport === PUTER_TRANSPORT_SDK ? 'SDK' : 'endpoint'}: ${puterTransport === PUTER_TRANSPORT_SDK ? 'Puter.js browser SDK' : settings.puterEndpoint || DEFAULT_PUTER_ENDPOINT}. ${getRoleplayModelOptions(settings).length} Grok model options loaded.`
               : settings.aiProvider === 'gateway'
@@ -489,6 +535,8 @@ function setupSettingsListeners(panel) {
         ? (current.roleplayModelId?.startsWith('gemini:') ? current.roleplayModelId : DEFAULT_GEMINI_MODEL_ID)
         : provider === 'puter'
           ? (current.roleplayModelId?.startsWith('puter:') ? current.roleplayModelId : DEFAULT_PUTER_MODEL_ID)
+          : provider === 'higherstate'
+            ? (current.roleplayModelId?.startsWith('higherstate:') ? current.roleplayModelId : DEFAULT_HIGHERSTATE_MODEL_ID)
           : provider === 'gateway'
             ? (current.roleplayModelId?.startsWith('gateway:') ? current.roleplayModelId : DEFAULT_GATEWAY_MODEL_ID)
           : (current.roleplayModelId?.startsWith('ollama:') ? current.roleplayModelId : toOllamaModelId('dolphin-mistral:latest'));
@@ -499,6 +547,8 @@ function setupSettingsListeners(panel) {
       });
       showToast(provider === 'gemini'
         ? 'Gemini provider selected.'
+        : provider === 'higherstate'
+          ? 'Higher State AI provider selected.'
         : provider === 'puter'
           ? 'Puter/Grok provider selected.'
           : provider === 'gateway'
@@ -515,6 +565,8 @@ function setupSettingsListeners(panel) {
     modelSelect.onchange = async () => {
       const provider = modelSelect.value.startsWith('gemini:')
         ? 'gemini'
+        : modelSelect.value.startsWith('higherstate:')
+          ? 'higherstate'
         : modelSelect.value.startsWith('puter:')
           ? 'puter'
           : modelSelect.value.startsWith('gateway:')
@@ -534,6 +586,25 @@ function setupSettingsListeners(panel) {
   const refreshOllamaBtn = panel.querySelector('#settings-refresh-ollama');
   const ollamaStatus = panel.querySelector('#settings-ollama-status');
   const newDawnToggle = panel.querySelector('#settings-new-dawn-mode');
+  const loadJesusEngineBtn = panel.querySelector('#settings-load-jesusengine');
+
+  if (loadJesusEngineBtn && modelSelect) {
+    loadJesusEngineBtn.onclick = async () => {
+      const character = getJesusEngineCharacter();
+      await saveCharacter(character);
+      const newSettings = {
+        ...getState().settings,
+        aiProvider: 'higherstate',
+        roleplayModelId: DEFAULT_HIGHERSTATE_MODEL_ID,
+        useGlobalPrompt: false
+      };
+      await saveSettings(newSettings);
+      showToast('JesusEngine loaded from the HolyCraft workspace.', 'success');
+      renderSettingsPanel(panel);
+      setupSettingsListeners(panel);
+      document.dispatchEvent(new CustomEvent('state-refresh-requested'));
+    };
+  }
 
   if (newDawnToggle) {
     newDawnToggle.onchange = async () => {
@@ -727,6 +798,119 @@ function setupSettingsListeners(panel) {
       } finally {
         testGeminiBtn.disabled = false;
         testGeminiBtn.textContent = 'Test Gemini';
+      }
+    };
+  }
+
+  const higherStateEndpointInput = panel.querySelector('#settings-higherstate-endpoint');
+  const higherStateMaxTokensInput = panel.querySelector('#settings-higherstate-max-tokens');
+  const higherStateContinuationInput = panel.querySelector('#settings-higherstate-continuations');
+  const refreshHigherStateBtn = panel.querySelector('#settings-refresh-higherstate');
+  const testHigherStateBtn = panel.querySelector('#settings-test-higherstate');
+
+  if (higherStateEndpointInput) {
+    let higherStateEndpointSaveTimeout;
+    higherStateEndpointInput.oninput = () => {
+      clearTimeout(higherStateEndpointSaveTimeout);
+      higherStateEndpointSaveTimeout = setTimeout(async () => {
+        await saveSettings({
+          ...getState().settings,
+          higherStateEndpoint: higherStateEndpointInput.value.trim() || DEFAULT_HIGHERSTATE_ENDPOINT
+        });
+        if (ollamaStatus) ollamaStatus.textContent = `Higher State AI endpoint saved: ${higherStateEndpointInput.value.trim() || DEFAULT_HIGHERSTATE_ENDPOINT}`;
+      }, 600);
+    };
+  }
+
+  if (higherStateMaxTokensInput) {
+    let higherStateMaxTokensSaveTimeout;
+    higherStateMaxTokensInput.oninput = () => {
+      clearTimeout(higherStateMaxTokensSaveTimeout);
+      higherStateMaxTokensSaveTimeout = setTimeout(async () => {
+        const maxTokens = Math.max(256, Number(higherStateMaxTokensInput.value || DEFAULT_HIGHERSTATE_MAX_TOKENS));
+        await saveSettings({ ...getState().settings, higherStateMaxTokens: maxTokens });
+        if (ollamaStatus) ollamaStatus.textContent = `Higher State max tokens saved: ${maxTokens}.`;
+      }, 500);
+    };
+  }
+
+  if (higherStateContinuationInput) {
+    let higherStateContinuationSaveTimeout;
+    higherStateContinuationInput.oninput = () => {
+      clearTimeout(higherStateContinuationSaveTimeout);
+      higherStateContinuationSaveTimeout = setTimeout(async () => {
+        const continuationLimit = Math.max(0, Number(higherStateContinuationInput.value || 0));
+        await saveSettings({ ...getState().settings, higherStateContinuationLimit: continuationLimit });
+        if (ollamaStatus) ollamaStatus.textContent = `Higher State auto-continues saved: ${continuationLimit}.`;
+      }, 500);
+    };
+  }
+
+  if (refreshHigherStateBtn && higherStateEndpointInput && modelSelect) {
+    refreshHigherStateBtn.onclick = async () => {
+      const endpoint = higherStateEndpointInput.value.trim() || DEFAULT_HIGHERSTATE_ENDPOINT;
+      refreshHigherStateBtn.disabled = true;
+      refreshHigherStateBtn.textContent = 'Refreshing...';
+      if (ollamaStatus) ollamaStatus.textContent = `Loading Higher State AI models from ${endpoint}...`;
+
+      try {
+        const models = await fetchHigherStateModels(endpoint, 20000);
+        const newSettings = {
+          ...getState().settings,
+          aiProvider: 'higherstate',
+          higherStateEndpoint: endpoint,
+          higherStateAvailableModels: models
+        };
+        await saveSettings(newSettings);
+        modelSelect.innerHTML = renderRoleplayOptions(newSettings);
+        if (!models.some(m => m.id === modelSelect.value) && models[0]) {
+          modelSelect.value = models[0].id;
+          await saveSettings({ ...newSettings, roleplayModelId: models[0].id });
+        }
+        if (ollamaStatus) ollamaStatus.textContent = `Loaded ${models.length} Higher State AI model options.`;
+        showToast(`Loaded ${models.length} Higher State AI model${models.length === 1 ? '' : 's'}.`, 'success');
+      } catch (err) {
+        console.error('Higher State model refresh failed:', err);
+        if (ollamaStatus) ollamaStatus.textContent = err.message || 'Could not load Higher State models.';
+        showToast('Could not load Higher State models.', 'error');
+      } finally {
+        refreshHigherStateBtn.disabled = false;
+        refreshHigherStateBtn.textContent = 'Refresh Higher State';
+      }
+    };
+  }
+
+  if (testHigherStateBtn) {
+    testHigherStateBtn.onclick = async () => {
+      testHigherStateBtn.disabled = true;
+      testHigherStateBtn.textContent = 'Testing...';
+      if (ollamaStatus) ollamaStatus.textContent = 'Testing Higher State AI...';
+      try {
+        const { callTextModel } = await import('../utils/ai.js');
+        const settings = {
+          ...getState().settings,
+          aiProvider: 'higherstate',
+          roleplayModelId: modelSelect?.value?.startsWith('higherstate:') ? modelSelect.value : DEFAULT_HIGHERSTATE_MODEL_ID,
+          higherStateEndpoint: higherStateEndpointInput?.value?.trim() || DEFAULT_HIGHERSTATE_ENDPOINT,
+          higherStateMaxTokens: Math.max(256, Number(higherStateMaxTokensInput?.value || DEFAULT_HIGHERSTATE_MAX_TOKENS)),
+          higherStateContinuationLimit: Math.max(0, Number(higherStateContinuationInput?.value || DEFAULT_HIGHERSTATE_CONTINUATION_LIMIT))
+        };
+        await saveSettings(settings);
+        const text = await callTextModel({
+          modelId: settings.roleplayModelId,
+          settings,
+          timeoutMs: 45000,
+          messages: [{ role: 'user', content: 'Reply with OK.' }]
+        });
+        if (ollamaStatus) ollamaStatus.textContent = `Higher State AI responded: ${(text || '').slice(0, 80) || 'empty response'}`;
+        showToast('Higher State AI responded.', 'success');
+      } catch (err) {
+        console.error('Higher State test failed:', err);
+        if (ollamaStatus) ollamaStatus.textContent = err.message || 'Higher State test failed.';
+        showToast('Higher State test failed.', 'error');
+      } finally {
+        testHigherStateBtn.disabled = false;
+        testHigherStateBtn.textContent = 'Test Higher State';
       }
     };
   }

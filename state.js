@@ -17,6 +17,12 @@ import {
   DEFAULT_PUTER_TRANSPORT
 } from './utils/puter.js';
 import {
+  DEFAULT_HIGHERSTATE_CONTINUATION_LIMIT,
+  DEFAULT_HIGHERSTATE_ENDPOINT,
+  DEFAULT_HIGHERSTATE_MAX_TOKENS,
+  DEFAULT_HIGHERSTATE_MODEL_ID
+} from './utils/higherstate.js';
+import {
   DEFAULT_GATEWAY_CONTINUATION_LIMIT,
   DEFAULT_GATEWAY_ENDPOINT,
   DEFAULT_GATEWAY_MAX_TOKENS,
@@ -61,6 +67,9 @@ let state = {
     puterTransport: DEFAULT_PUTER_TRANSPORT,
     puterMaxTokens: DEFAULT_PUTER_MAX_TOKENS,
     puterContinuationLimit: DEFAULT_PUTER_CONTINUATION_LIMIT,
+    higherStateEndpoint: DEFAULT_HIGHERSTATE_ENDPOINT,
+    higherStateMaxTokens: DEFAULT_HIGHERSTATE_MAX_TOKENS,
+    higherStateContinuationLimit: DEFAULT_HIGHERSTATE_CONTINUATION_LIMIT,
     gatewayEndpoint: DEFAULT_GATEWAY_ENDPOINT,
     gatewayMaxTokens: DEFAULT_GATEWAY_MAX_TOKENS,
     gatewayContinuationLimit: DEFAULT_GATEWAY_CONTINUATION_LIMIT,
@@ -120,6 +129,7 @@ export async function initState() {
   if (data[STORAGE_KEYS.CHAT_HISTORY]) state.chatHistory = data[STORAGE_KEYS.CHAT_HISTORY];
 
   state.settings = normalizeSettings(state.settings);
+  await seedWorkspaceCharacters();
   if (state.character) {
     state.character = normalizeCharacterIdentity(state.character);
     await upsertActiveCharacterBundle();
@@ -277,6 +287,9 @@ function normalizeSettings(settings = {}) {
     puterTransport: DEFAULT_PUTER_TRANSPORT,
     puterMaxTokens: DEFAULT_PUTER_MAX_TOKENS,
     puterContinuationLimit: DEFAULT_PUTER_CONTINUATION_LIMIT,
+    higherStateEndpoint: DEFAULT_HIGHERSTATE_ENDPOINT,
+    higherStateMaxTokens: DEFAULT_HIGHERSTATE_MAX_TOKENS,
+    higherStateContinuationLimit: DEFAULT_HIGHERSTATE_CONTINUATION_LIMIT,
     gatewayEndpoint: DEFAULT_GATEWAY_ENDPOINT,
     gatewayMaxTokens: DEFAULT_GATEWAY_MAX_TOKENS,
     gatewayContinuationLimit: DEFAULT_GATEWAY_CONTINUATION_LIMIT,
@@ -298,6 +311,9 @@ function normalizeSettings(settings = {}) {
   if (next.aiProvider === 'puter' && !String(next.roleplayModelId || '').startsWith('puter:')) {
     next.roleplayModelId = DEFAULT_PUTER_MODEL_ID;
   }
+  if (next.aiProvider === 'higherstate' && !String(next.roleplayModelId || '').startsWith('higherstate:')) {
+    next.roleplayModelId = DEFAULT_HIGHERSTATE_MODEL_ID;
+  }
   if (next.aiProvider === 'gateway' && !String(next.roleplayModelId || '').startsWith('gateway:')) {
     next.roleplayModelId = DEFAULT_GATEWAY_MODEL_ID;
   }
@@ -312,12 +328,77 @@ function normalizeSettings(settings = {}) {
   if (!next.puterTransport) next.puterTransport = DEFAULT_PUTER_TRANSPORT;
   if (!next.puterMaxTokens) next.puterMaxTokens = DEFAULT_PUTER_MAX_TOKENS;
   if (!next.puterContinuationLimit && next.puterContinuationLimit !== 0) next.puterContinuationLimit = DEFAULT_PUTER_CONTINUATION_LIMIT;
+  if (!next.higherStateEndpoint) next.higherStateEndpoint = DEFAULT_HIGHERSTATE_ENDPOINT;
+  if (!next.higherStateMaxTokens) next.higherStateMaxTokens = DEFAULT_HIGHERSTATE_MAX_TOKENS;
+  if (!next.higherStateContinuationLimit && next.higherStateContinuationLimit !== 0) next.higherStateContinuationLimit = DEFAULT_HIGHERSTATE_CONTINUATION_LIMIT;
   if (!next.gatewayEndpoint) next.gatewayEndpoint = DEFAULT_GATEWAY_ENDPOINT;
   if (!next.gatewayMaxTokens) next.gatewayMaxTokens = DEFAULT_GATEWAY_MAX_TOKENS;
   if (!next.gatewayContinuationLimit && next.gatewayContinuationLimit !== 0) next.gatewayContinuationLimit = DEFAULT_GATEWAY_CONTINUATION_LIMIT;
   if (!next.mediaStorageEndpoint) next.mediaStorageEndpoint = '/media';
   if (next.newDawnMode !== false) next.newDawnMode = true;
   return next;
+}
+
+async function seedWorkspaceCharacters() {
+  const jesusEngine = getJesusEngineCharacter();
+  const exists = (state.characters || []).some(item => {
+    const character = item.character || item;
+    return character.id === jesusEngine.id;
+  });
+  if (exists) return;
+
+  state.characters = [
+    {
+      id: jesusEngine.id,
+      name: jesusEngine.name,
+      title: jesusEngine.title,
+      avatar: jesusEngine.avatar,
+      character: jesusEngine,
+      gallery: jesusEngine.photos || [],
+      memory: [],
+      nodes: [],
+      lorebookIds: jesusEngine.lorebookIds || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    ...(state.characters || [])
+  ];
+  await dbSet(STORAGE_KEYS.CHARACTERS, state.characters);
+}
+
+export function getJesusEngineCharacter() {
+  return normalizeCharacterIdentity({
+    id: 'jesusengine-holycraft',
+    name: 'JesusEngine',
+    title: 'Jesus of Nazareth - HolyCraft Workspace',
+    bio: 'Born in Bethlehem and raised in Nazareth, Jesus of Nazareth was a Jewish preacher, teacher, and healer whose life and teachings became the foundation of Christianity. He gathered disciples, traveled through Galilee and Judea, and taught love, forgiveness, mercy, justice, and the Kingdom of God.',
+    personality: 'Compassionate, direct, patient, courageous, humble, and deeply present. He speaks with warmth and poetic clarity, often using parables, metaphors, and historically grounded references to first-century Judea.',
+    systemPrompt: 'You are Jesus of Nazareth, the Jewish teacher and healer from first-century Galilee. You are participating in a collaborative story arc with the user. Stay in character at all times unless the user explicitly asks you to step out of roleplay. Embody warmth, wisdom, compassion, moral courage, and human emotion. Speak in parables when appropriate, challenge hypocrisy with directness, comfort the suffering, and draw naturally on Gospel themes and the historical context of Roman-occupied Judea. Treat each conversation as a chapter in an ongoing narrative.',
+    scenario: 'The user is beginning a story arc with Jesus of Nazareth. The setting can move between Galilee, Judea, the wilderness, village roads, homes, synagogues, and quiet moments of teaching or healing. Keep the scene grounded, vivid, and emotionally present.',
+    first_mes: 'Peace be with you. Come, walk with me awhile, and tell me what burdens your heart.',
+    mes_example: '"Consider the lilies of the field," Jesus said, his voice soft over the road dust. "They do not strain to become beloved. They simply receive the light given to them."',
+    creator_notes: 'Imported from the HolyCraft workspace at C:\\Users\\domo\\Documents\\GitHub\\holycraft\\lib\\character.ts.',
+    tags: ['JesusEngine', 'HolyCraft', 'Jesus of Nazareth', 'historical', 'theological', 'roleplay'],
+    lorebookIds: [],
+    photos: [
+      {
+        id: 'holycraft-logo',
+        title: 'HolyCraft',
+        url: '/logo.jpg',
+        src: '/logo.jpg',
+        type: 'image',
+        description: 'HolyCraft workspace avatar.'
+      }
+    ],
+    avatar: '/logo.jpg',
+    chat: '',
+    forgeMeta: {
+      sourceWorkspace: 'C:\\Users\\domo\\Documents\\GitHub\\holycraft',
+      sourceFile: 'lib/character.ts',
+      preferredProvider: 'higherstate',
+      preferredModelId: DEFAULT_HIGHERSTATE_MODEL_ID
+    }
+  });
 }
 
 export function getDefaultCharacter() {

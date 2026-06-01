@@ -1,5 +1,5 @@
 // main.js - Divine Corruption Bootstrap (with Auth + Divinity Zone)
-import { initState, saveCharacter, getState, setActiveNode, getDefaultCharacter } from './state.js';
+import { initState, saveCharacter, saveSettings, getState, setActiveNode, getDefaultCharacter, getJesusEngineCharacter } from './state.js';
 import { showToast } from './ui/toast.js';
 import { initProfileUI } from './ui/profile-view.js';
 import { initCharactersUI } from './ui/characters.js';
@@ -11,6 +11,7 @@ import { initBiblicalAI } from './ui/biblicalai.js';
 import { initSettingsUI } from './ui/settings.js';
 import { normalizeAnyCharacterJSON } from './utils/ai.js';
 import { fetchOllamaModels, warmOllamaModels } from './utils/ollama.js';
+import { DEFAULT_HIGHERSTATE_MODEL_ID } from './utils/higherstate.js';
 import { initBlessingMaker } from './ui/blessingmaker.js';
 import { initDivinityZone, showDivinityZoneDirect } from './ui/divinity-zone.js';
 import { initAuth, checkAndGate } from './ui/auth.js';
@@ -159,6 +160,7 @@ function setupUploadHandlers(uploadScreen, dashboard) {
   uploadHandlersReady = true;
 
   const jsonInput = document.getElementById('json-upload');
+  const loadJesusEngineBtn = document.getElementById('btn-load-jesusengine');
   const loadDefaultBtn = document.getElementById('btn-load-default');
 
   jsonInput.addEventListener('change', async (e) => {
@@ -198,6 +200,19 @@ function setupUploadHandlers(uploadScreen, dashboard) {
         showToast('Failed to parse JSON (even with AI help).', 'error');
       }
     }
+  });
+
+  loadJesusEngineBtn?.addEventListener('click', async () => {
+    const character = getJesusEngineCharacter();
+    await saveCharacter(character);
+    await saveSettings({
+      ...getState().settings,
+      aiProvider: 'higherstate',
+      roleplayModelId: DEFAULT_HIGHERSTATE_MODEL_ID,
+      useGlobalPrompt: false
+    });
+    showToast('JesusEngine loaded from the HolyCraft workspace.', 'success');
+    showDashboard(uploadScreen, dashboard, getState());
   });
 
   loadDefaultBtn.addEventListener('click', async () => {

@@ -12,6 +12,10 @@ const ollamaModelsPath = process.env.OLLAMA_MODELS || path.join(os.homedir(), '.
 const puterOpenAiBase = (process.env.PUTER_OPENAI_BASE || 'https://api.puter.com/puterai/openai/v1').replace(/\/+$/, '');
 const puterModelsUrl = process.env.PUTER_MODELS_URL || 'https://api.puter.com/puterai/chat/models/details';
 const puterAuthTokenFile = process.env.PUTER_AUTH_TOKEN_FILE || path.join(os.homedir(), 'Desktop', 'authtoken.txt');
+const higherStateBaseUrl = (process.env.HIGHERSTATE_BASE_URL || 'https://higher-stateai-app.blnq.workers.dev').replace(/\/+$/, '');
+const higherStateEmail = process.env.HIGHERSTATE_EMAIL || '';
+const higherStatePassword = process.env.HIGHERSTATE_PASSWORD || '';
+const higherStateApiKeyFile = process.env.HIGHERSTATE_API_KEY_FILE || '';
 const gatewayOpenAiBase = (process.env.GATEWAY_OPENAI_BASE || process.env.HF_GATEWAY_BASE_URL || 'http://127.0.0.1:11435/v1').replace(/\/+$/, '');
 const gatewayApiKeyFile = process.env.GATEWAY_API_KEY_FILE || process.env.HF_GATEWAY_API_KEY_FILE || path.join(os.homedir(), 'Documents', 'HF', '.gateway', 'api-key.txt');
 const dataRoot = path.join(root, '.data');
@@ -19,6 +23,8 @@ const sqlitePath = path.join(dataRoot, 'divine-corruption.sqlite');
 const localMediaRoot = path.join(root, '.media-cache');
 let sqliteDb;
 let cachedPuterAuthToken = null;
+let cachedHigherStateAuthToken = null;
+let cachedHigherStateApiKey = null;
 let cachedGatewayApiKey = null;
 
 const contentTypes = new Map([
@@ -48,6 +54,8 @@ const server = http.createServer(async (req, res) => {
         ollamaModelsPath,
         sqlitePath,
         puterConfigured: Boolean(await getPuterAuthToken().catch(() => '')),
+        higherStateBaseUrl,
+        higherStateConfigured: Boolean(await getHigherStateAuthToken().catch(() => '')),
         gatewayOpenAiBase,
         gatewayConfigured: Boolean(await getGatewayApiKey().catch(() => ''))
       });
@@ -118,6 +126,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (url.pathname.startsWith('/higherstate/') && (req.method === 'GET' || req.method === 'POST' || req.method === 'OPTIONS')) {
+      await handleHigherState(req, res, url);
+      return;
+    }
+
     if (url.pathname.startsWith('/gateway/') && (req.method === 'GET' || req.method === 'POST' || req.method === 'OPTIONS')) {
       await handleGateway(req, res, url);
       return;
@@ -136,6 +149,7 @@ server.listen(port, () => {
   console.log(`Dev server: http://localhost:${port}`);
   console.log(`Ollama proxy: /ollama -> ${ollamaTarget}`);
   console.log(`Ollama models: ${ollamaModelsPath}`);
+  console.log(`Higher State AI proxy: /higherstate -> ${higherStateBaseUrl}`);
   console.log(`Gateway proxy: /gateway -> ${gatewayOpenAiBase}`);
   console.log(`SQLite DB: ${sqlitePath}`);
 });
@@ -373,6 +387,75 @@ async function handlePuter(req, res, url) {
   }
 
   sendJson(res, { ok: false, error: 'Puter route not found' }, 404);
+}
+
+async function handleHigherState(req, res, url) {
+  if (req.method === 'OPTIONS') {
+    setCors(res);
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  if (url.pathname === '/higherstate/health' && req.method === 'GET') {
+    sendJson(res, {
+      ok: true,
+      baseUrl: higherStateBaseUrl,
+      configured: Boolean(await getHigherStateAuthToken().catch(() => ''))
+    });
+    return;
+  }
+
+  if (url.pathname === '/higherstate/models' && req.method === 'GET') {
+    const token = await getHigherStateAuthToken();
+    const response = await fetch(`${higherStateBaseUrl}/api/models?refresh=true`, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${token}`
+      }
+    });
+
+    setCors(res);
+    res.writeHead(response.status, {
+      'content-type': response.headers.get('content-type') || 'application/json'
+    });
+    res.end(Buffer.from(await response.arrayBuffer()));
+    return;
+  }
+
+  if (url.pathname === '/higherstate/chat' && req.method === 'POST') {
+    const body = await parseJsonBody(req);
+    const token = body.apiKey || await getHigherStateAuthToken();
+    if (!token) {
+      setCors(res);
+      sendJson(res, {
+        error: 'Higher State AI auth missing. Set HIGHERSTATE_AUTH_TOKEN, HIGHERSTATE_API_KEY_FILE, or HIGHERSTATE_EMAIL/HIGHERSTATE_PASSWORD before starting the dev server.'
+      }, 400);
+      return;
+    }
+
+    const request = body.request || {};
+    request.model = sanitizeOpenAiModel(body.model || request.model || 'grok-3-mini');
+
+    const response = await fetch(`${higherStateBaseUrl}/openai/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(request)
+    });
+
+    setCors(res);
+    res.writeHead(response.status, {
+      'content-type': response.headers.get('content-type') || 'application/json'
+    });
+    res.end(Buffer.from(await response.arrayBuffer()));
+    return;
+  }
+
+  sendJson(res, { ok: false, error: 'Higher State AI route not found' }, 404);
 }
 
 async function handleGateway(req, res, url) {
@@ -713,6 +796,43 @@ async function getPuterAuthToken() {
   const token = (await fs.readFile(puterAuthTokenFile, 'utf8')).trim();
   cachedPuterAuthToken = token;
   return token;
+}
+
+async function getHigherStateAuthToken() {
+  if (process.env.HIGHERSTATE_AUTH_TOKEN) return process.env.HIGHERSTATE_AUTH_TOKEN.trim();
+  if (process.env.HIGHERSTATE_API_KEY) return process.env.HIGHERSTATE_API_KEY.trim();
+  if (cachedHigherStateAuthToken) return cachedHigherStateAuthToken;
+  if (cachedHigherStateApiKey) return cachedHigherStateApiKey;
+  if (higherStateApiKeyFile) {
+    const token = (await fs.readFile(higherStateApiKeyFile, 'utf8')).trim();
+    cachedHigherStateApiKey = token;
+    return token;
+  }
+  if (!higherStateEmail || !higherStatePassword) {
+    throw new Error('Higher State AI auth missing. Set HIGHERSTATE_AUTH_TOKEN, HIGHERSTATE_API_KEY_FILE, or HIGHERSTATE_EMAIL/HIGHERSTATE_PASSWORD.');
+  }
+
+  const response = await fetch(`${higherStateBaseUrl}/api/v1/auths/signin`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: higherStateEmail,
+      password: higherStatePassword
+    })
+  });
+  const raw = await response.text();
+  let data = {};
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    data = { raw };
+  }
+  if (!response.ok || !data.token) {
+    const message = data?.detail || data?.error || raw || `HTTP ${response.status}`;
+    throw new Error(`Higher State AI login failed: ${message}`);
+  }
+  cachedHigherStateAuthToken = data.token;
+  return cachedHigherStateAuthToken;
 }
 
 async function getGatewayApiKey() {

@@ -32,6 +32,16 @@ import {
   callPuterText
 } from './puter.js';
 import {
+  DEFAULT_HIGHERSTATE_CONTINUATION_LIMIT,
+  DEFAULT_HIGHERSTATE_ENDPOINT,
+  DEFAULT_HIGHERSTATE_MAX_TOKENS,
+  DEFAULT_HIGHERSTATE_MODEL_ID,
+  HIGHERSTATE_ROLEPLAY_MODELS,
+  isHigherStateModelId,
+  stripHigherStatePrefix,
+  callHigherStateText
+} from './higherstate.js';
+import {
   DEFAULT_GATEWAY_CONTINUATION_LIMIT,
   DEFAULT_GATEWAY_ENDPOINT,
   DEFAULT_GATEWAY_MAX_TOKENS,
@@ -124,6 +134,7 @@ export const UNCENSORED_ROLEPLAY_MODELS = [
 
 export const CLOUD_ROLEPLAY_MODELS = [
   ...GEMINI_MODELS,
+  ...HIGHERSTATE_ROLEPLAY_MODELS,
   ...PUTER_GROK_MODELS,
   ...GATEWAY_ROLEPLAY_MODELS
 ];
@@ -133,10 +144,12 @@ export async function callTextModel({ modelId, messages, timeoutMs = 90000, sett
   const resolvedModelId = modelId || resolvedSettings.roleplayModelId || ROLEPLAY_MODEL_ID;
   const modelHasProviderPrefix = isOllamaModelId(resolvedModelId)
     || isGeminiModelId(resolvedModelId)
+    || isHigherStateModelId(resolvedModelId)
     || isPuterModelId(resolvedModelId)
     || isGatewayModelId(resolvedModelId);
   const useOllama = isOllamaModelId(resolvedModelId) || (!modelHasProviderPrefix && resolvedSettings.aiProvider === 'ollama');
   const useGemini = isGeminiModelId(resolvedModelId) || (!modelHasProviderPrefix && resolvedSettings.aiProvider === 'gemini');
+  const useHigherState = isHigherStateModelId(resolvedModelId) || (!modelHasProviderPrefix && resolvedSettings.aiProvider === 'higherstate');
   const usePuter = isPuterModelId(resolvedModelId) || (!modelHasProviderPrefix && resolvedSettings.aiProvider === 'puter');
   const useGateway = isGatewayModelId(resolvedModelId) || (!modelHasProviderPrefix && resolvedSettings.aiProvider === 'gateway');
 
@@ -163,6 +176,20 @@ export async function callTextModel({ modelId, messages, timeoutMs = 90000, sett
       safetyThreshold: resolvedSettings.geminiSafetyThreshold || DEFAULT_GEMINI_SAFETY_THRESHOLD,
       continuationLimit: Number(resolvedSettings.geminiContinuationLimit || DEFAULT_GEMINI_CONTINUATION_LIMIT),
       thinkingMode: resolvedSettings.geminiThinkingMode || DEFAULT_GEMINI_THINKING_MODE
+    });
+  }
+
+  if (useHigherState) {
+    const higherStateModelId = isHigherStateModelId(resolvedModelId) ? resolvedModelId : DEFAULT_HIGHERSTATE_MODEL_ID;
+    return callHigherStateText({
+      endpoint: resolvedSettings.higherStateEndpoint || DEFAULT_HIGHERSTATE_ENDPOINT,
+      apiKey: resolvedSettings.higherStateApiKey || '',
+      model: stripHigherStatePrefix(higherStateModelId),
+      messages,
+      timeoutMs,
+      maxTokens: Number(resolvedSettings.higherStateMaxTokens || DEFAULT_HIGHERSTATE_MAX_TOKENS),
+      continuationLimit: Number(resolvedSettings.higherStateContinuationLimit ?? DEFAULT_HIGHERSTATE_CONTINUATION_LIMIT),
+      temperature: Number(options.temperature || 0.9)
     });
   }
 
@@ -1059,7 +1086,7 @@ export async function callJesus(chatHistory = [], node = null, options = {}) {
     return reply.trim();
   } catch (err) {
     console.error('callJesus error:', err);
-    if (modelId !== DEFAULT_ROLEPLAY_MODEL_ID && !isGeminiModelId(modelId) && !isPuterModelId(modelId) && !isGatewayModelId(modelId)) {
+    if (modelId !== DEFAULT_ROLEPLAY_MODEL_ID && !isGeminiModelId(modelId) && !isHigherStateModelId(modelId) && !isPuterModelId(modelId) && !isGatewayModelId(modelId)) {
       try {
         const fallback = await callTextModel({
           modelId: DEFAULT_ROLEPLAY_MODEL_ID,

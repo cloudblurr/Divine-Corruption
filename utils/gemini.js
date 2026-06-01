@@ -182,6 +182,11 @@ async function generateOnce({
     safetyThreshold,
     thinkingMode
   });
+  const apiModel = getGeminiApiModel(model);
+
+  if (isDirectGeminiEndpoint(base)) {
+    return parseGeminiResponse(await fetchGeminiDirect({ base, apiKey, model: apiModel, request, signal }));
+  }
 
   const response = await fetch(`${base}/generate`, {
     method: 'POST',
@@ -189,11 +194,45 @@ async function generateOnce({
     signal,
     body: JSON.stringify({
       apiKey,
-      model: getGeminiApiModel(model),
+      model: apiModel,
       request
     })
   });
 
+  if ((response.status === 404 || response.status === 405) && apiKey) {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      return parseGeminiResponse(await fetchGeminiDirect({ apiKey, model: apiModel, request, signal }));
+    }
+  }
+
+  return parseGeminiResponse(response);
+}
+
+async function fetchGeminiDirect({
+  base = 'https://generativelanguage.googleapis.com/v1beta',
+  apiKey,
+  model,
+  request,
+  signal
+}) {
+  if (!apiKey) {
+    throw new Error('Gemini API key missing. Add it in Settings, run the local dev server with GEMINI_API_KEY, or use a Gemini endpoint proxy.');
+  }
+
+  const apiBase = base.replace(/\/+$/, '').replace(/\/models\/?$/i, '');
+  return fetch(`${apiBase}/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey
+    },
+    signal,
+    body: JSON.stringify(request)
+  });
+}
+
+async function parseGeminiResponse(response) {
   const raw = await response.text();
   let data = {};
   try {
@@ -224,6 +263,10 @@ async function generateOnce({
       .join('\n')
       .trim()
   };
+}
+
+function isDirectGeminiEndpoint(base) {
+  return /^https:\/\/generativelanguage\.googleapis\.com(\/|$)/i.test(base);
 }
 
 function buildGeminiRequest({ model, messages = [], temperature, maxOutputTokens, safetyThreshold, thinkingMode }) {

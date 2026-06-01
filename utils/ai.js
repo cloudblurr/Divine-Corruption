@@ -25,6 +25,7 @@ import {
   DEFAULT_PUTER_ENDPOINT,
   DEFAULT_PUTER_MAX_TOKENS,
   DEFAULT_PUTER_MODEL_ID,
+  DEFAULT_PUTER_TRANSPORT,
   PUTER_GROK_MODELS,
   isPuterModelId,
   stripPuterPrefix,
@@ -175,7 +176,8 @@ export async function callTextModel({ modelId, messages, timeoutMs = 90000, sett
       timeoutMs,
       maxTokens: Number(resolvedSettings.puterMaxTokens || DEFAULT_PUTER_MAX_TOKENS),
       continuationLimit: Number(resolvedSettings.puterContinuationLimit ?? DEFAULT_PUTER_CONTINUATION_LIMIT),
-      temperature: Number(options.temperature || 0.9)
+      temperature: Number(options.temperature || 0.9),
+      transport: resolvedSettings.puterTransport || DEFAULT_PUTER_TRANSPORT
     });
   }
 
@@ -1094,6 +1096,9 @@ function formatRoleplayError(err, modelId) {
   }
   if (isPuterModelId(modelId) && raw.toLowerCase().includes('auth')) {
     return 'Puter needs a valid auth token on the dev server. Set PUTER_AUTH_TOKEN, PUTER_AUTH_TOKEN_FILE, or keep the token file on Desktop, then restart the server.';
+  }
+  if (isPuterModelId(modelId) && raw.toLowerCase().includes('puter.js sdk')) {
+    return 'Puter.js is not ready in the browser. Refresh the app, check access to js.puter.com, or switch Puter transport to Dev Server Proxy.';
   }
   if (isPuterModelId(modelId) && raw.toLowerCase().includes('blocked')) {
     return 'Puter/xAI rejected this prompt or response. Provider safeguards are controlled upstream.';

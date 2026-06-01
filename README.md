@@ -152,14 +152,29 @@ GET    /media/object/:key
 ## Puter.com / xAI Grok
 
 Puter/Grok support is available in Settings -> Roleplay Engine -> Provider.
-The browser talks to the local dev server at `/puter`, and the dev server sends
-requests to Puter's OpenAI-compatible endpoint:
+The provider has two transports:
+
+```text
+Puter.js SDK - browser login
+Dev Server Proxy - token file
+```
+
+The Puter.js SDK transport uses the browser script:
+
+```html
+<script src="https://js.puter.com/v2/" defer></script>
+```
+
+and calls `puter.ai.chat()` / `puter.ai.listModels('xai')` directly from the
+browser. The dev-server proxy transport talks to the local dev server at
+`/puter`, and the dev server sends requests to Puter's OpenAI-compatible
+endpoint:
 
 ```text
 https://api.puter.com/puterai/openai/v1/chat/completions
 ```
 
-The auth token is intentionally not stored in app source or browser settings.
+For proxy mode, the auth token is intentionally not stored in app source or browser settings.
 The dev server reads it from one of these places:
 
 ```powershell
@@ -184,7 +199,7 @@ POST /puter/chat
 ```
 
 The default Grok model is `grok-4-1-fast-non-reasoning`, with model refresh
-available from Settings.
+available from Settings in either transport.
 
 ## Gateway / HF Local
 

@@ -6,6 +6,9 @@ export const DEFAULT_PUTER_MODEL = 'grok-4-1-fast-non-reasoning';
 export const DEFAULT_PUTER_MODEL_ID = `${PUTER_MODEL_PREFIX}${DEFAULT_PUTER_MODEL}`;
 export const DEFAULT_PUTER_MAX_TOKENS = 4096;
 export const DEFAULT_PUTER_CONTINUATION_LIMIT = 1;
+export const PUTER_TRANSPORT_PROXY = 'proxy';
+export const PUTER_TRANSPORT_SDK = 'puterjs';
+export const DEFAULT_PUTER_TRANSPORT = PUTER_TRANSPORT_PROXY;
 
 export const PUTER_GROK_MODELS = [
   {
@@ -86,7 +89,11 @@ export function normalizePuterEndpoint(endpoint) {
   return value.replace(/\/+$/, '') || DEFAULT_PUTER_ENDPOINT;
 }
 
-export async function fetchPuterModels(endpoint = DEFAULT_PUTER_ENDPOINT, timeoutMs = 15000) {
+export async function fetchPuterModels(endpoint = DEFAULT_PUTER_ENDPOINT, timeoutMs = 15000, transport = DEFAULT_PUTER_TRANSPORT) {
+  if (transport === PUTER_TRANSPORT_SDK) {
+    return fetchPuterJsModels(timeoutMs);
+  }
+
   const base = normalizePuterEndpoint(endpoint);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -106,6 +113,23 @@ export async function fetchPuterModels(endpoint = DEFAULT_PUTER_ENDPOINT, timeou
   }
 }
 
+export async function fetchPuterJsModels(timeoutMs = 15000) {
+  const sdk = await waitForPuterSdk(timeoutMs);
+  const models = await withTimeout(sdk.ai.listModels('xai'), timeoutMs, 'Puter.js model refresh timed out.').catch(async () => {
+    const allModels = await withTimeout(sdk.ai.listModels(), timeoutMs, 'Puter.js model refresh timed out.');
+    return allModels.filter(model => {
+      const haystack = [
+        model?.provider,
+        model?.id,
+        model?.name,
+        ...(Array.isArray(model?.aliases) ? model.aliases : [])
+      ].join(' ').toLowerCase();
+      return haystack.includes('xai') || haystack.includes('grok');
+    });
+  });
+  return mergePuterModels(PUTER_GROK_MODELS, models.map(mapPuterModel).filter(Boolean));
+}
+
 export async function callPuterText({
   endpoint = DEFAULT_PUTER_ENDPOINT,
   apiKey = '',
@@ -114,8 +138,20 @@ export async function callPuterText({
   timeoutMs = 90000,
   temperature = 0.9,
   maxTokens = DEFAULT_PUTER_MAX_TOKENS,
-  continuationLimit = DEFAULT_PUTER_CONTINUATION_LIMIT
+  continuationLimit = DEFAULT_PUTER_CONTINUATION_LIMIT,
+  transport = DEFAULT_PUTER_TRANSPORT
 }) {
+  if (transport === PUTER_TRANSPORT_SDK) {
+    return callPuterJsText({
+      model,
+      messages,
+      timeoutMs,
+      temperature,
+      maxTokens,
+      continuationLimit
+    });
+  }
+
   const base = normalizePuterEndpoint(endpoint);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -164,6 +200,54 @@ export async function callPuterText({
   }
 }
 
+async function callPuterJsText({
+  model = DEFAULT_PUTER_MODEL,
+  messages = [],
+  timeoutMs = 90000,
+  temperature = 0.9,
+  maxTokens = DEFAULT_PUTER_MAX_TOKENS,
+  continuationLimit = DEFAULT_PUTER_CONTINUATION_LIMIT
+}) {
+  const sdk = await waitForPuterSdk(timeoutMs);
+  const originalMessages = normalizeMessages(messages);
+  let activeMessages = originalMessages;
+  let fullText = '';
+  const maxTurns = Math.max(0, Number.parseInt(continuationLimit, 10) || 0);
+
+  for (let turn = 0; turn <= maxTurns; turn++) {
+    const response = await withTimeout(
+      sdk.ai.chat(activeMessages, {
+        model: stripPuterPrefix(model),
+        temperature,
+        max_tokens: maxTokens,
+        stream: false
+      }),
+      timeoutMs,
+      'Puter.js chat timed out.'
+    );
+    const result = {
+      finishReason: getPuterFinishReason(response),
+      text: extractPuterJsText(response)
+    };
+
+    if (result.text) fullText = joinContinuation(fullText, result.text);
+    if (result.finishReason !== 'length') return fullText.trim();
+    if (turn === maxTurns) break;
+
+    activeMessages = [
+      ...originalMessages,
+      { role: 'assistant', content: fullText || result.text || '' },
+      {
+        role: 'user',
+        content: 'Continue exactly where you stopped. Do not recap, restart, apologize, or add a heading. Continue the same response until it reaches a natural ending.'
+      }
+    ];
+  }
+
+  if (fullText.trim()) return fullText.trim();
+  throw new Error('Puter.js returned an empty response.');
+}
+
 async function chatOnce({ base, apiKey, model, messages, temperature, maxTokens, signal }) {
   const response = await fetch(`${base}/chat`, {
     method: 'POST',
@@ -209,8 +293,8 @@ function mapPuterModel(model) {
   const id = model?.id || model?.puterId || '';
   const aliases = model?.aliases || [];
   const name = model?.name || id;
-  const haystack = [id, model?.puterId, name, ...aliases].join(' ').toLowerCase();
-  if (!haystack.includes('grok') && !haystack.includes('x-ai')) return null;
+  const haystack = [id, model?.puterId, model?.provider, name, ...aliases].join(' ').toLowerCase();
+  if (!haystack.includes('grok') && !haystack.includes('x-ai') && !haystack.includes('xai')) return null;
 
   const preferred = id.includes(':') && aliases.length
     ? aliases.find(alias => !alias.includes(':') && !alias.includes('/')) || aliases[0]
@@ -279,4 +363,58 @@ function joinContinuation(previous, next) {
 
 function formatNumber(value) {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+function waitForPuterSdk(timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      const sdk = globalThis.puter;
+      if (sdk?.ai?.chat && sdk?.ai?.listModels) {
+        resolve(sdk);
+        return;
+      }
+      if (Date.now() > deadline) {
+        reject(new Error('Puter.js SDK is not loaded. Refresh the app, check network access to js.puter.com, or switch Puter transport to Dev Server Proxy.'));
+        return;
+      }
+      setTimeout(check, 100);
+    };
+    check();
+  });
+}
+
+function extractPuterJsText(response) {
+  if (typeof response === 'string') return response.trim();
+  const text = response?.message?.content
+    || response?.content
+    || response?.text
+    || response?.choices?.[0]?.message?.content
+    || response?.choices?.[0]?.text
+    || '';
+
+  if (Array.isArray(text)) {
+    return text.map(part => {
+      if (typeof part === 'string') return part;
+      return part?.text || part?.content || '';
+    }).filter(Boolean).join('\n').trim();
+  }
+
+  return String(text || '').trim();
+}
+
+function getPuterFinishReason(response) {
+  return response?.finish_reason
+    || response?.finishReason
+    || response?.message?.finish_reason
+    || response?.choices?.[0]?.finish_reason
+    || '';
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }

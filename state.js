@@ -13,7 +13,8 @@ import {
   DEFAULT_PUTER_CONTINUATION_LIMIT,
   DEFAULT_PUTER_ENDPOINT,
   DEFAULT_PUTER_MAX_TOKENS,
-  DEFAULT_PUTER_MODEL_ID
+  DEFAULT_PUTER_MODEL_ID,
+  DEFAULT_PUTER_TRANSPORT
 } from './utils/puter.js';
 import {
   DEFAULT_GATEWAY_CONTINUATION_LIMIT,
@@ -57,6 +58,7 @@ let state = {
     geminiContinuationLimit: DEFAULT_GEMINI_CONTINUATION_LIMIT,
     geminiThinkingMode: DEFAULT_GEMINI_THINKING_MODE,
     puterEndpoint: DEFAULT_PUTER_ENDPOINT,
+    puterTransport: DEFAULT_PUTER_TRANSPORT,
     puterMaxTokens: DEFAULT_PUTER_MAX_TOKENS,
     puterContinuationLimit: DEFAULT_PUTER_CONTINUATION_LIMIT,
     gatewayEndpoint: DEFAULT_GATEWAY_ENDPOINT,
@@ -272,6 +274,7 @@ function normalizeSettings(settings = {}) {
     geminiContinuationLimit: DEFAULT_GEMINI_CONTINUATION_LIMIT,
     geminiThinkingMode: DEFAULT_GEMINI_THINKING_MODE,
     puterEndpoint: DEFAULT_PUTER_ENDPOINT,
+    puterTransport: DEFAULT_PUTER_TRANSPORT,
     puterMaxTokens: DEFAULT_PUTER_MAX_TOKENS,
     puterContinuationLimit: DEFAULT_PUTER_CONTINUATION_LIMIT,
     gatewayEndpoint: DEFAULT_GATEWAY_ENDPOINT,
@@ -306,6 +309,7 @@ function normalizeSettings(settings = {}) {
   if (!next.geminiContinuationLimit && next.geminiContinuationLimit !== 0) next.geminiContinuationLimit = DEFAULT_GEMINI_CONTINUATION_LIMIT;
   if (!next.geminiThinkingMode) next.geminiThinkingMode = DEFAULT_GEMINI_THINKING_MODE;
   if (!next.puterEndpoint) next.puterEndpoint = DEFAULT_PUTER_ENDPOINT;
+  if (!next.puterTransport) next.puterTransport = DEFAULT_PUTER_TRANSPORT;
   if (!next.puterMaxTokens) next.puterMaxTokens = DEFAULT_PUTER_MAX_TOKENS;
   if (!next.puterContinuationLimit && next.puterContinuationLimit !== 0) next.puterContinuationLimit = DEFAULT_PUTER_CONTINUATION_LIMIT;
   if (!next.gatewayEndpoint) next.gatewayEndpoint = DEFAULT_GATEWAY_ENDPOINT;

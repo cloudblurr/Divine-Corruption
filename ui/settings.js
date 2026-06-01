@@ -28,6 +28,9 @@ import {
   DEFAULT_PUTER_ENDPOINT,
   DEFAULT_PUTER_MAX_TOKENS,
   DEFAULT_PUTER_MODEL_ID,
+  DEFAULT_PUTER_TRANSPORT,
+  PUTER_TRANSPORT_PROXY,
+  PUTER_TRANSPORT_SDK,
   PUTER_GROK_MODELS,
   fetchPuterModels
 } from '../utils/puter.js';
@@ -96,6 +99,7 @@ function renderSettingsPanel(panel) {
   const state = getState();
   const settings = state.settings || {};
   const char = state.character;
+  const puterTransport = settings.puterTransport || DEFAULT_PUTER_TRANSPORT;
 
   panel.innerHTML = `
     <div class="flex items-center justify-between mb-8">
@@ -239,9 +243,18 @@ function renderSettingsPanel(panel) {
           <div class="text-[10px]" style="color:var(--muted-foreground);">Gemini may still block prompts or responses. Built-in protections cannot be disabled.</div>
         </div>
         <div id="settings-puter-config" class="mt-4 space-y-3 ${settings.aiProvider === 'puter' ? '' : 'hidden'}">
-          <input id="settings-puter-endpoint" class="neu-input text-sm"
-                 value="${settings.puterEndpoint || DEFAULT_PUTER_ENDPOINT}"
-                 placeholder="/puter" />
+          <label class="block">
+            <span class="mb-1 block text-[10px] uppercase tracking-widest" style="color:var(--muted-foreground);">Puter transport</span>
+            <select id="settings-puter-transport" class="neu-input text-sm">
+              <option value="${PUTER_TRANSPORT_SDK}" ${puterTransport === PUTER_TRANSPORT_SDK ? 'selected' : ''}>Puter.js SDK - browser login</option>
+              <option value="${PUTER_TRANSPORT_PROXY}" ${puterTransport === PUTER_TRANSPORT_PROXY ? 'selected' : ''}>Dev Server Proxy - token file</option>
+            </select>
+          </label>
+          <div id="settings-puter-proxy-config" class="${puterTransport === PUTER_TRANSPORT_SDK ? 'hidden' : ''}">
+            <input id="settings-puter-endpoint" class="neu-input text-sm"
+                   value="${settings.puterEndpoint || DEFAULT_PUTER_ENDPOINT}"
+                   placeholder="/puter" />
+          </div>
           <div class="grid gap-3 sm:grid-cols-2">
             <label class="block">
               <span class="mb-1 block text-[10px] uppercase tracking-widest" style="color:var(--muted-foreground);">Max response tokens</span>
@@ -255,7 +268,9 @@ function renderSettingsPanel(panel) {
             </label>
           </div>
           <div class="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-            <div class="text-[10px] self-center" style="color:var(--muted-foreground);">Uses the dev server token from PUTER_AUTH_TOKEN or Desktop/authtoken.txt. The token is not saved in browser settings.</div>
+            <div class="text-[10px] self-center" style="color:var(--muted-foreground);">${puterTransport === PUTER_TRANSPORT_SDK
+              ? 'Uses Puter.js from js.puter.com/v2 with Puter browser login. No auth token is stored in this app.'
+              : 'Uses the dev server token from PUTER_AUTH_TOKEN or Desktop/authtoken.txt. The token is not saved in browser settings.'}</div>
             <button id="settings-refresh-puter" class="neu-btn px-4 py-2 text-xs rounded-xl">Refresh Grok</button>
             <button id="settings-test-puter" class="neu-btn px-4 py-2 text-xs rounded-xl">Test Puter</button>
           </div>
@@ -286,7 +301,7 @@ function renderSettingsPanel(panel) {
           ${settings.aiProvider === 'gemini'
             ? `Gemini endpoint: ${settings.geminiEndpoint || DEFAULT_GEMINI_ENDPOINT}. ${getRoleplayModelOptions(settings).length} model options loaded.`
             : settings.aiProvider === 'puter'
-              ? `Puter endpoint: ${settings.puterEndpoint || DEFAULT_PUTER_ENDPOINT}. ${getRoleplayModelOptions(settings).length} Grok model options loaded.`
+              ? `Puter ${puterTransport === PUTER_TRANSPORT_SDK ? 'SDK' : 'endpoint'}: ${puterTransport === PUTER_TRANSPORT_SDK ? 'Puter.js browser SDK' : settings.puterEndpoint || DEFAULT_PUTER_ENDPOINT}. ${getRoleplayModelOptions(settings).length} Grok model options loaded.`
               : settings.aiProvider === 'gateway'
                 ? `Gateway endpoint: ${settings.gatewayEndpoint || DEFAULT_GATEWAY_ENDPOINT}. ${getRoleplayModelOptions(settings).length} model options loaded.`
             : `Endpoint: ${settings.ollamaEndpoint || DEFAULT_OLLAMA_ENDPOINT}. ${getRoleplayModelOptions(settings).length} model options loaded.`}
@@ -716,11 +731,29 @@ function setupSettingsListeners(panel) {
     };
   }
 
+  const puterTransportSelect = panel.querySelector('#settings-puter-transport');
   const puterEndpointInput = panel.querySelector('#settings-puter-endpoint');
   const puterMaxTokensInput = panel.querySelector('#settings-puter-max-tokens');
   const puterContinuationInput = panel.querySelector('#settings-puter-continuations');
   const refreshPuterBtn = panel.querySelector('#settings-refresh-puter');
   const testPuterBtn = panel.querySelector('#settings-test-puter');
+
+  if (puterTransportSelect) {
+    puterTransportSelect.onchange = async () => {
+      const transport = puterTransportSelect.value || DEFAULT_PUTER_TRANSPORT;
+      await saveSettings({
+        ...getState().settings,
+        aiProvider: 'puter',
+        puterTransport: transport,
+        roleplayModelId: getState().settings?.roleplayModelId?.startsWith('puter:')
+          ? getState().settings.roleplayModelId
+          : DEFAULT_PUTER_MODEL_ID
+      });
+      showToast(transport === PUTER_TRANSPORT_SDK ? 'Puter.js SDK mode selected.' : 'Puter proxy mode selected.', 'success');
+      renderSettingsPanel(panel);
+      setupSettingsListeners(panel);
+    };
+  }
 
   if (puterEndpointInput) {
     let puterEndpointSaveTimeout;
@@ -760,15 +793,21 @@ function setupSettingsListeners(panel) {
   if (refreshPuterBtn && puterEndpointInput && modelSelect) {
     refreshPuterBtn.onclick = async () => {
       const endpoint = puterEndpointInput.value.trim() || DEFAULT_PUTER_ENDPOINT;
+      const transport = puterTransportSelect?.value || getState().settings?.puterTransport || DEFAULT_PUTER_TRANSPORT;
       refreshPuterBtn.disabled = true;
       refreshPuterBtn.textContent = 'Refreshing...';
-      if (ollamaStatus) ollamaStatus.textContent = `Loading Grok models from ${endpoint}...`;
+      if (ollamaStatus) {
+        ollamaStatus.textContent = transport === PUTER_TRANSPORT_SDK
+          ? 'Loading Grok models from Puter.js...'
+          : `Loading Grok models from ${endpoint}...`;
+      }
 
       try {
-        const models = await fetchPuterModels(endpoint);
+        const models = await fetchPuterModels(endpoint, 15000, transport);
         const newSettings = {
           ...getState().settings,
           aiProvider: 'puter',
+          puterTransport: transport,
           puterEndpoint: endpoint,
           puterAvailableModels: models
         };
@@ -802,6 +841,7 @@ function setupSettingsListeners(panel) {
           ...getState().settings,
           aiProvider: 'puter',
           roleplayModelId: modelSelect?.value?.startsWith('puter:') ? modelSelect.value : DEFAULT_PUTER_MODEL_ID,
+          puterTransport: puterTransportSelect?.value || getState().settings?.puterTransport || DEFAULT_PUTER_TRANSPORT,
           puterEndpoint: puterEndpointInput?.value?.trim() || DEFAULT_PUTER_ENDPOINT,
           puterMaxTokens: Math.max(256, Number(puterMaxTokensInput?.value || DEFAULT_PUTER_MAX_TOKENS)),
           puterContinuationLimit: Math.max(0, Number(puterContinuationInput?.value || DEFAULT_PUTER_CONTINUATION_LIMIT))
@@ -1259,8 +1299,10 @@ Ollama/Gemini/Puter/Gateway proxies, and local media fallback.
 ## Notes
 - Tailwind CSS is loaded from CDN.
 - JSZip (used for this export) is loaded from CDN at runtime.
+- Puter.js SDK is loaded from \`https://js.puter.com/v2/\` and can be selected
+  in Settings -> Roleplay Engine -> Puter transport.
 - Puter/Grok calls use the local \`/puter/chat\` proxy so the auth token stays
-  server-side.
+  server-side when Dev Server Proxy transport is selected.
 - Gateway calls use the local \`/gateway/chat\` proxy so the HF Gateway key stays
   server-side.
 ${errors.length ? `\n## Missing Files\n${errors.map(e => `- \`${e}\``).join('\n')}` : ''}
